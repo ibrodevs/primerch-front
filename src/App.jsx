@@ -39,6 +39,7 @@ const EMBROIDERY_CONTROLS = [
 const DEFAULT_APP_STATE = {
   garment: { w: 600, h: 600 },
   print_bounds: { x: 0, y: 0, w: 600, h: 600 },
+  region_bounds: {},
   placement: { x: 220, y: 520, width: 180, height: 120, rotation: 0 },
   size_ref: { w: 180, h: 120 },
   scale: 1,
@@ -128,6 +129,23 @@ function getPrintBounds(app) {
   }
 }
 
+function getStoredRegionBounds(app, region) {
+  const printBounds = getPrintBounds(app)
+  const raw = app.region_bounds?.[String(region || 'auto')]
+  if (!raw || typeof raw !== 'object') return null
+
+  const x = clamp(Math.round(num(raw.x, printBounds.x)), printBounds.x, printBounds.x + printBounds.w - 1)
+  const y = clamp(Math.round(num(raw.y, printBounds.y)), printBounds.y, printBounds.y + printBounds.h - 1)
+  const maxW = Math.max(1, printBounds.x + printBounds.w - x)
+  const maxH = Math.max(1, printBounds.y + printBounds.h - y)
+  return {
+    x,
+    y,
+    w: clamp(Math.round(num(raw.w, printBounds.w)), 1, maxW),
+    h: clamp(Math.round(num(raw.h, printBounds.h)), 1, maxH),
+  }
+}
+
 function regionBoundsFromPrintBounds(printBounds, region) {
   const rects = {
     chest: () => rectFromBounds(printBounds, 0.3, 0.22, 0.7, 0.42),
@@ -144,7 +162,7 @@ function getActiveBounds(app) {
   const printBounds = getPrintBounds(app)
   if (!app.lock_region) return printBounds
   if (String(app.region || 'auto') === 'auto') return printBounds
-  return regionBoundsFromPrintBounds(printBounds, app.region)
+  return getStoredRegionBounds(app, app.region) || regionBoundsFromPrintBounds(printBounds, app.region)
 }
 
 function normalizeAppState(input) {
@@ -152,6 +170,7 @@ function normalizeAppState(input) {
     ...input,
     garment: { ...input.garment },
     print_bounds: { ...input.print_bounds },
+    region_bounds: { ...(input.region_bounds || {}) },
     placement: { ...input.placement },
     size_ref: { ...input.size_ref },
     print_params: { ...input.print_params },
@@ -203,6 +222,8 @@ function applyStateData(current, data) {
     ...current,
     garment: { ...current.garment, ...(data.garment || {}) },
     print_bounds: { ...current.print_bounds, ...(data.print_bounds || {}) },
+    region_bounds:
+      data.region_bounds && typeof data.region_bounds === 'object' ? { ...data.region_bounds } : current.region_bounds,
     placement: { ...current.placement, ...(data.placement || {}) },
     mode: modeRaw === 'embroidery' ? 'embroidery' : 'print',
     region: data.region || current.region,
@@ -540,6 +561,10 @@ function App() {
         setSizeReferenceFromPlacement({
           ...current,
           print_bounds: result.print_bounds || current.print_bounds,
+          region_bounds:
+            result.region_bounds && typeof result.region_bounds === 'object'
+              ? { ...result.region_bounds }
+              : current.region_bounds,
           placement: { ...current.placement, ...(result.placement || {}) },
           region: result.region || current.region,
         }),
