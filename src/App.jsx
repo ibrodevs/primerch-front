@@ -544,7 +544,7 @@ function backendImageProxySrc(url) {
   return ''
 }
 
-function publicProxyImageSrc(url) {
+function wsrvProxyImageSrc(url) {
   const value = urlWithoutQuery(url)
   if (!value) return ''
   try {
@@ -559,15 +559,15 @@ function publicProxyImageSrc(url) {
 
 function SmartImage({ url, className, alt, ...rest }) {
   const original = String(url || '').trim()
+  const wsrv = wsrvProxyImageSrc(original)
   const backendProxy = backendImageProxySrc(original)
   const proxy = proxyImageSrc(original)
   const stripped = urlWithoutQuery(original)
-  const publicProxy = publicProxyImageSrc(original)
 
   const candidates = Array.from(new Set(
     (import.meta.env.DEV
-      ? [original, stripped, proxy]
-      : [backendProxy, original, stripped, publicProxy])
+      ? [wsrv, original, stripped, proxy]
+      : [wsrv, original, stripped, backendProxy])
       .map((value) => String(value || '').trim())
       .filter(Boolean),
   ))
