@@ -448,19 +448,6 @@ async function fileFromRemoteImage(url) {
     return response
   }
 
-  const publicProxyUrl = (() => {
-    const stripped = withoutQuery
-    if (!stripped) return ''
-    try {
-      const parsed = new URL(stripped)
-      if (parsed.protocol !== 'https:') return ''
-      const upstream = `${parsed.host}${parsed.pathname}`
-      return `https://wsrv.nl/?url=${encodeURIComponent(upstream)}`
-    } catch {
-      return ''
-    }
-  })()
-
   let response
   if (import.meta.env.DEV) {
     const proxyUrl = `/__imgproxy?url=${encodeURIComponent(remoteUrl)}`
@@ -470,24 +457,14 @@ async function fileFromRemoteImage(url) {
       try {
         response = await fetchOrThrow(withoutQuery)
       } catch {
-        try {
-          if (!publicProxyUrl) throw new Error('Missing proxy url')
-          response = await fetchOrThrow(publicProxyUrl)
-        } catch {
-          response = await fetchOrThrow(proxyUrl)
-        }
+        response = await fetchOrThrow(proxyUrl)
       }
     }
   } else {
     try {
       response = await fetchOrThrow(remoteUrl)
     } catch {
-      try {
-        response = await fetchOrThrow(withoutQuery)
-      } catch {
-        if (!publicProxyUrl) throw new Error('Template download failed')
-        response = await fetchOrThrow(publicProxyUrl)
-      }
+      response = await fetchOrThrow(withoutQuery)
     }
   }
 
@@ -517,29 +494,15 @@ function urlWithoutQuery(url) {
   }
 }
 
-function wsrvProxyImageSrc(url) {
-  const value = urlWithoutQuery(url)
-  if (!value) return ''
-  try {
-    const parsed = new URL(value)
-    if (parsed.protocol !== 'https:') return ''
-    const upstream = `${parsed.host}${parsed.pathname}`
-    return `https://wsrv.nl/?url=${encodeURIComponent(upstream)}`
-  } catch {
-    return ''
-  }
-}
-
 function SmartImage({ url, className, alt, ...rest }) {
   const original = String(url || '').trim()
-  const wsrv = wsrvProxyImageSrc(original)
   const proxy = proxyImageSrc(original)
   const stripped = urlWithoutQuery(original)
 
   const candidates = Array.from(new Set(
     (import.meta.env.DEV
-      ? [original, stripped, wsrv, proxy]
-      : [original, stripped, wsrv])
+      ? [original, stripped, proxy]
+      : [original, stripped])
       .map((value) => String(value || '').trim())
       .filter(Boolean),
   ))
