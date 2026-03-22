@@ -448,6 +448,31 @@ async function fileFromRemoteImage(url) {
     return response
   }
 
+  const backendProxyUrl = (() => {
+    try {
+      const parsed = new URL(remoteUrl)
+      if (parsed.protocol === 'https:' && parsed.host === 'files.gifts.ru') {
+        return assetUrl(`/api/image-proxy?url=${encodeURIComponent(remoteUrl)}`)
+      }
+    } catch {
+      // ignore
+    }
+    return ''
+  })()
+
+  const publicProxyUrl = (() => {
+    const stripped = withoutQuery
+    if (!stripped) return ''
+    try {
+      const parsed = new URL(stripped)
+      if (parsed.protocol !== 'https:') return ''
+      const upstream = `${parsed.host}${parsed.pathname}`
+      return `https://wsrv.nl/?url=${encodeURIComponent(upstream)}`
+    } catch {
+      return ''
+    }
+  })()
+
   let response
   if (import.meta.env.DEV) {
     const proxyUrl = `/__imgproxy?url=${encodeURIComponent(remoteUrl)}`
@@ -462,9 +487,18 @@ async function fileFromRemoteImage(url) {
     }
   } else {
     try {
-      response = await fetchOrThrow(remoteUrl)
+      if (backendProxyUrl) {
+        response = await fetchOrThrow(backendProxyUrl)
+      } else {
+        response = await fetchOrThrow(remoteUrl)
+      }
     } catch {
-      response = await fetchOrThrow(withoutQuery)
+      try {
+        response = await fetchOrThrow(withoutQuery)
+      } catch {
+        if (!publicProxyUrl) throw new Error('Template download failed')
+        response = await fetchOrThrow(publicProxyUrl)
+      }
     }
   }
 
@@ -494,13 +528,46 @@ function urlWithoutQuery(url) {
   }
 }
 
+function backendImageProxySrc(url) {
+  const raw = String(url || '').trim()
+  if (!raw) return ''
+
+  try {
+    const parsed = new URL(raw)
+    if (parsed.protocol === 'https:' && parsed.host === 'files.gifts.ru') {
+      return assetUrl(`/api/image-proxy?url=${encodeURIComponent(raw)}`)
+    }
+  } catch {
+    return ''
+  }
+
+  return ''
+}
+
+function publicProxyImageSrc(url) {
+  const value = urlWithoutQuery(url)
+  if (!value) return ''
+  try {
+    const parsed = new URL(value)
+    if (parsed.protocol !== 'https:') return ''
+    const upstream = `${parsed.host}${parsed.pathname}`
+    return `https://wsrv.nl/?url=${encodeURIComponent(upstream)}`
+  } catch {
+    return ''
+  }
+}
+
 function SmartImage({ url, className, alt, ...rest }) {
   const original = String(url || '').trim()
+  const backendProxy = backendImageProxySrc(original)
   const proxy = proxyImageSrc(original)
   const stripped = urlWithoutQuery(original)
+  const publicProxy = publicProxyImageSrc(original)
 
   const candidates = Array.from(new Set(
-    (import.meta.env.DEV ? [original, stripped, proxy] : [original, stripped])
+    (import.meta.env.DEV
+      ? [original, stripped, proxy]
+      : [backendProxy, original, stripped, publicProxy])
       .map((value) => String(value || '').trim())
       .filter(Boolean),
   ))
