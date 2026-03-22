@@ -787,13 +787,8 @@ function App() {
               </div>
               <div className="max-w-3xl space-y-3">
                 <h1 className="text-3xl font-semibold tracking-[-0.04em] text-[var(--ink)] sm:text-4xl lg:text-[3.35rem]">
-                  Современный конструктор принта и вышивки для вашего backend.
+                  Современный конструктор принта
                 </h1>
-                <p className="max-w-2xl text-sm leading-6 text-[var(--muted-strong)] sm:text-base">
-                  Интерфейс собран на React + Vite + Tailwind, повторяет логику из
-                  `primerch/static`, но упакован в более чистый studio workflow:
-                  загрузка, быстрый placement, live render и удобные параметры материала.
-                </p>
               </div>
             </div>
 
@@ -801,7 +796,6 @@ function App() {
               <Metric label="Статус" value={status} />
               <Metric label="Сессия" value={app.session_id ? app.session_id.slice(0, 12) : 'default'} />
               <Metric label="Overlay" value={app.overlay_type === 'text' ? 'Text' : 'Logo'} />
-              <Metric label="Backend" value={apiHealthLabel()} />
             </div>
           </div>
         </header>
@@ -833,12 +827,6 @@ function App() {
                 <button className="studio-button studio-button-primary" onClick={handleUploadSession}>
                   Upload template + logo
                 </button>
-
-                <div className="rounded-2xl border border-dashed border-[var(--line)] bg-[var(--chip)] px-4 py-3 text-sm text-[var(--muted-strong)]">
-                  Backend endpoints: <span className="font-semibold text-[var(--ink)]">/api/session</span>,
-                  <span className="font-semibold text-[var(--ink)]"> /render</span>,
-                  <span className="font-semibold text-[var(--ink)]"> /autoplace</span>
-                </div>
               </div>
             </Section>
 
@@ -1174,17 +1162,6 @@ function App() {
                       <Metric label="Bound W" value={bounds.w} />
                       <Metric label="Bound H" value={bounds.h} />
                     </div>
-                  </div>
-
-                  <div className="rounded-[28px] border border-[var(--line)] bg-white/75 p-5">
-                    <div className="text-[0.68rem] uppercase tracking-[0.28em] text-[var(--muted-strong)]">
-                      Integration note
-                    </div>
-                    <p className="mt-3 text-sm leading-6 text-[var(--muted-strong)]">
-                      Вся работа идет через текущий backend: `POST /api/session`,
-                      `GET /api/session/:id/state`, `POST /render`, `POST /autoplace`,
-                      `GET /garment.png`.
-                    </p>
                   </div>
                 </div>
               </div>
