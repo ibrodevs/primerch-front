@@ -448,18 +448,6 @@ async function fileFromRemoteImage(url) {
     return response
   }
 
-  const backendProxyUrl = (() => {
-    try {
-      const parsed = new URL(remoteUrl)
-      if (parsed.protocol === 'https:' && parsed.host === 'files.gifts.ru') {
-        return assetUrl(`/api/image-proxy?url=${encodeURIComponent(remoteUrl)}`)
-      }
-    } catch {
-      // ignore
-    }
-    return ''
-  })()
-
   const publicProxyUrl = (() => {
     const stripped = withoutQuery
     if (!stripped) return ''
@@ -482,16 +470,17 @@ async function fileFromRemoteImage(url) {
       try {
         response = await fetchOrThrow(withoutQuery)
       } catch {
-        response = await fetchOrThrow(proxyUrl)
+        try {
+          if (!publicProxyUrl) throw new Error('Missing proxy url')
+          response = await fetchOrThrow(publicProxyUrl)
+        } catch {
+          response = await fetchOrThrow(proxyUrl)
+        }
       }
     }
   } else {
     try {
-      if (backendProxyUrl) {
-        response = await fetchOrThrow(backendProxyUrl)
-      } else {
-        response = await fetchOrThrow(remoteUrl)
-      }
+      response = await fetchOrThrow(remoteUrl)
     } catch {
       try {
         response = await fetchOrThrow(withoutQuery)
@@ -528,22 +517,6 @@ function urlWithoutQuery(url) {
   }
 }
 
-function backendImageProxySrc(url) {
-  const raw = String(url || '').trim()
-  if (!raw) return ''
-
-  try {
-    const parsed = new URL(raw)
-    if (parsed.protocol === 'https:' && parsed.host === 'files.gifts.ru') {
-      return assetUrl(`/api/image-proxy?url=${encodeURIComponent(raw)}`)
-    }
-  } catch {
-    return ''
-  }
-
-  return ''
-}
-
 function wsrvProxyImageSrc(url) {
   const value = urlWithoutQuery(url)
   if (!value) return ''
@@ -560,14 +533,13 @@ function wsrvProxyImageSrc(url) {
 function SmartImage({ url, className, alt, ...rest }) {
   const original = String(url || '').trim()
   const wsrv = wsrvProxyImageSrc(original)
-  const backendProxy = backendImageProxySrc(original)
   const proxy = proxyImageSrc(original)
   const stripped = urlWithoutQuery(original)
 
   const candidates = Array.from(new Set(
     (import.meta.env.DEV
-      ? [wsrv, original, stripped, proxy]
-      : [wsrv, original, stripped, backendProxy])
+      ? [original, stripped, wsrv, proxy]
+      : [original, stripped, wsrv])
       .map((value) => String(value || '').trim())
       .filter(Boolean),
   ))
