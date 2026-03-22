@@ -454,6 +454,7 @@ function App() {
   const appRef = useRef(DEFAULT_APP_STATE)
   const previewUrlRef = useRef('')
   const renderTimeoutRef = useRef(null)
+  const renderAbortRef = useRef(null)
   const renderCounterRef = useRef(0)
   const canvasRef = useRef(null)
   const dragRef = useRef({ active: false, dx: 0, dy: 0 })
@@ -474,6 +475,9 @@ function App() {
   async function renderPreview() {
     const snapshot = appRef.current
     const requestId = ++renderCounterRef.current
+    renderAbortRef.current?.abort()
+    const controller = new AbortController()
+    renderAbortRef.current = controller
     setStatus('Рендер...')
 
     try {
@@ -481,20 +485,26 @@ function App() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(renderPayload(snapshot)),
+        signal: controller.signal,
       })
 
       if (!response.ok) throw new Error(`${response.status}`)
 
       const blob = await response.blob()
-      if (requestId !== renderCounterRef.current) return
+      if (requestId !== renderCounterRef.current || controller.signal.aborted) return
 
       const nextUrl = URL.createObjectURL(blob)
       if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current)
       previewUrlRef.current = nextUrl
       setPreviewUrl(nextUrl)
       setStatus('Готово')
-    } catch {
+    } catch (error) {
+      if (controller.signal.aborted || error?.name === 'AbortError') return
       if (requestId === renderCounterRef.current) setStatus('Ошибка рендера')
+    } finally {
+      if (renderAbortRef.current === controller) {
+        renderAbortRef.current = null
+      }
     }
   }
 
@@ -712,6 +722,7 @@ function App() {
     return () => {
       mounted = false
       window.clearTimeout(renderTimeoutRef.current)
+      renderAbortRef.current?.abort()
       if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current)
     }
   }, [])
