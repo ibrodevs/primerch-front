@@ -429,12 +429,105 @@ function productPriceLabel(product) {
 }
 
 async function fileFromRemoteImage(url) {
-  const response = await fetch(url)
-  if (!response.ok) throw new Error(`${response.status}`)
+  const remoteUrl = String(url || '').trim()
+  if (!remoteUrl) throw new Error('Empty template url')
+
+  const withoutQuery = (() => {
+    try {
+      const parsed = new URL(remoteUrl)
+      parsed.search = ''
+      return parsed.toString()
+    } catch {
+      return remoteUrl.split('?')[0] || remoteUrl
+    }
+  })()
+
+  const fetchOrThrow = async (requestUrl) => {
+    const response = await fetch(requestUrl)
+    if (!response.ok) throw new Error(`${response.status}`)
+    return response
+  }
+
+  let response
+  if (import.meta.env.DEV) {
+    const proxyUrl = `/__imgproxy?url=${encodeURIComponent(remoteUrl)}`
+    try {
+      response = await fetchOrThrow(remoteUrl)
+    } catch {
+      try {
+        response = await fetchOrThrow(withoutQuery)
+      } catch {
+        response = await fetchOrThrow(proxyUrl)
+      }
+    }
+  } else {
+    try {
+      response = await fetchOrThrow(remoteUrl)
+    } catch {
+      response = await fetchOrThrow(withoutQuery)
+    }
+  }
+
   const blob = await response.blob()
   const contentType = blob.type || 'image/png'
   const ext = contentType.includes('jpeg') ? 'jpg' : contentType.includes('webp') ? 'webp' : 'png'
   return new File([blob], `template.${ext}`, { type: contentType })
+}
+
+function proxyImageSrc(url) {
+  const value = String(url || '').trim()
+  if (!value) return ''
+  if (!import.meta.env.DEV) return value
+  if (!/^https?:\/\//i.test(value)) return value
+  return `/__imgproxy?url=${encodeURIComponent(value)}`
+}
+
+function urlWithoutQuery(url) {
+  const value = String(url || '').trim()
+  if (!value) return ''
+  try {
+    const parsed = new URL(value)
+    parsed.search = ''
+    return parsed.toString()
+  } catch {
+    return value.split('?')[0] || value
+  }
+}
+
+function SmartImage({ url, className, alt, ...rest }) {
+  const original = String(url || '').trim()
+  const proxy = proxyImageSrc(original)
+  const stripped = urlWithoutQuery(original)
+
+  const candidates = Array.from(new Set(
+    (import.meta.env.DEV ? [original, stripped, proxy] : [original, stripped])
+      .map((value) => String(value || '').trim())
+      .filter(Boolean),
+  ))
+
+  const [index, setIndex] = useState(0)
+  const src = candidates[index] || ''
+
+  if (!src) {
+    return (
+      <div
+        className={className}
+        aria-label={alt || 'Image'}
+      />
+    )
+  }
+
+  return (
+    <img
+      className={className}
+      src={src}
+      alt={alt}
+      onError={() => {
+        setIndex((current) => (current + 1 < candidates.length ? current + 1 : current))
+      }}
+      {...rest}
+    />
+  )
 }
 
 function Section({ title, eyebrow, children }) {
@@ -899,9 +992,9 @@ function App() {
                   <div className="text-xs uppercase tracking-[0.22em] text-[var(--muted)]">Template</div>
                   <div className="mt-2 flex items-center gap-3">
                     {selectedTemplate?.photoUrl ? (
-                      <img
+                      <SmartImage
                         className="h-12 w-12 flex-none rounded-xl border border-white/70 bg-white object-cover"
-                        src={selectedTemplate.photoUrl}
+                        url={selectedTemplate.photoUrl}
                         alt={selectedTemplate.product?.product_name || 'Template'}
                         loading="lazy"
                       />
@@ -1228,9 +1321,9 @@ function App() {
                           }
                           title={active ? 'Выбрано' : 'Выбрать фото'}
                         >
-                          <img
+                          <SmartImage
                             className="absolute inset-0 h-full w-full object-cover"
-                            src={url}
+                            url={url}
                             alt="Photo"
                             loading="lazy"
                           />
@@ -1260,9 +1353,9 @@ function App() {
                     >
                       <div className="relative aspect-[4/3] bg-[linear-gradient(180deg,rgba(248,250,252,0.95),rgba(226,232,240,0.95))]">
                         {photoUrl ? (
-                          <img
+                          <SmartImage
                             className="absolute inset-0 h-full w-full object-cover"
-                            src={photoUrl}
+                            url={photoUrl}
                             alt={product.product_name || 'Product'}
                             loading="lazy"
                           />
