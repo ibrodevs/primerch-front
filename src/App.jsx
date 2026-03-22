@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 
+const API_BASE_URL = String(import.meta.env.VITE_API_BASE_URL || '').trim().replace(/\/+$/, '')
+
 const REGION_OPTIONS = [
   { value: 'auto', label: 'Авто' },
   { value: 'chest', label: 'Грудь' },
@@ -245,10 +247,75 @@ function applyStateData(current, data) {
 
 function apiPath(app, endpoint) {
   const clean = String(endpoint || '').replace(/^\/+/, '')
-  if (app.session_id) {
-    return `/api/session/${encodeURIComponent(app.session_id)}/${clean}`
+  const path = app.session_id
+    ? `/api/session/${encodeURIComponent(app.session_id)}/${clean}`
+    : `/api/${clean}`
+  return assetUrl(path)
+}
+
+function assetUrl(path) {
+  const normalized = String(path || '')
+  const baseUrl = currentApiBaseUrl()
+  if (!baseUrl || baseUrl === frontendUrl()) return normalized
+  return `${baseUrl}${normalized.startsWith('/') ? normalized : `/${normalized}`}`
+}
+
+function frontendUrl() {
+  return window.location.origin
+}
+
+function publicSessionUrl(sessionId) {
+  const url = new URL(window.location.href)
+  const backendBase = API_BASE_URL || readBackendBaseFromUrl()
+  if (!sessionId) {
+    url.searchParams.delete('session')
+    return url
   }
-  return `/api/${clean}`
+  url.searchParams.set('session', sessionId)
+  if (backendBase) {
+    url.searchParams.set('backend', backendBase)
+  } else {
+    url.searchParams.delete('backend')
+  }
+  return url
+}
+
+function readBackendBaseFromUrl() {
+  const value = new URL(window.location.href).searchParams.get('backend')
+  return String(value || '').trim().replace(/\/+$/, '')
+}
+
+function currentApiBaseUrl() {
+  return API_BASE_URL || readBackendBaseFromUrl() || frontendUrl()
+}
+
+function apiRootPath(path) {
+  return assetUrl(path)
+}
+
+function apiPathForSession(sessionId, endpoint) {
+  const clean = String(endpoint || '').replace(/^\/+/, '')
+  return assetUrl(`/api/session/${encodeURIComponent(sessionId)}/${clean}`)
+}
+
+function statePath(sessionId) {
+  return sessionId ? apiPathForSession(sessionId, 'state') : apiRootPath('/api/state')
+}
+
+function sessionCreatePath() {
+  return apiRootPath('/api/session')
+}
+
+function garmentImagePath(sessionId, version) {
+  const path = sessionId
+    ? `/api/session/${encodeURIComponent(sessionId)}/garment.png?v=${version}`
+    : `/shirt.png?v=${version}`
+  return assetUrl(path)
+}
+
+function apiHealthLabel() {
+  const origin = currentApiBaseUrl()
+  return origin === frontendUrl() ? 'same-origin' : origin
 }
 
 function renderPayload(app) {
@@ -555,7 +622,7 @@ function App() {
     setStatus('Загрузка файлов...')
 
     try {
-      const response = await fetch('/api/session', { method: 'POST', body: form })
+      const response = await fetch(sessionCreatePath(), { method: 'POST', body: form })
       if (!response.ok) throw new Error(`${response.status}`)
       const result = await response.json()
 
@@ -612,7 +679,7 @@ function App() {
 
       try {
         if (sessionId) {
-          const response = await fetch(`/api/session/${encodeURIComponent(sessionId)}/state`)
+          const response = await fetch(statePath(sessionId))
           if (response.ok) {
             const data = await response.json()
             nextState = applyStateData({ ...DEFAULT_APP_STATE, session_id: sessionId }, data)
@@ -623,7 +690,7 @@ function App() {
         }
 
         if (!sessionId || !nextState.session_id) {
-          const response = await fetch('/api/state')
+          const response = await fetch(statePath(null))
           const data = await response.json()
           nextState = applyStateData(DEFAULT_APP_STATE, data)
         }
@@ -651,12 +718,7 @@ function App() {
 
   useEffect(() => {
     if (!booted) return
-    const url = new URL(window.location.href)
-    if (app.session_id) {
-      url.searchParams.set('session', app.session_id)
-    } else {
-      url.searchParams.delete('session')
-    }
+    const url = publicSessionUrl(app.session_id)
     window.history.replaceState({}, '', url)
   }, [app.session_id, booted])
 
@@ -712,9 +774,7 @@ function App() {
     height: `${bounds.h * scaleY}px`,
   }
 
-  const baseImageSrc = app.session_id
-    ? `/api/session/${encodeURIComponent(app.session_id)}/garment.png?v=${baseImageVersion}`
-    : `/shirt.png?v=${baseImageVersion}`
+  const baseImageSrc = garmentImagePath(app.session_id, baseImageVersion)
 
   return (
     <div className="min-h-screen px-4 py-5 text-[var(--ink)] sm:px-6 lg:px-8">
@@ -741,6 +801,7 @@ function App() {
               <Metric label="Статус" value={status} />
               <Metric label="Сессия" value={app.session_id ? app.session_id.slice(0, 12) : 'default'} />
               <Metric label="Overlay" value={app.overlay_type === 'text' ? 'Text' : 'Logo'} />
+              <Metric label="Backend" value={apiHealthLabel()} />
             </div>
           </div>
         </header>
