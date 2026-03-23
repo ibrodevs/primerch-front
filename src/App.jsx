@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 
 const API_BASE_URL = String(import.meta.env.VITE_API_BASE_URL || '').trim().replace(/\/+$/, '')
+const BOOT_REQUEST_TIMEOUT_MS = 8000
+const API_REQUEST_TIMEOUT_MS = 12000
+const RENDER_REQUEST_TIMEOUT_MS = 20000
 
 const REGION_OPTIONS = [
   { value: 'auto', label: 'Авто' },
@@ -462,29 +465,111 @@ function frontendUrl() {
   return window.location.origin
 }
 
+function isLocalFrontendOrigin(origin) {
+  try {
+    const { hostname } = new URL(origin)
+    return hostname === 'localhost' || hostname === '127.0.0.1'
+  } catch {
+    return false
+  }
+}
+
+function shouldUseSameOriginProxy(baseUrl) {
+  if (!import.meta.env.PROD || !baseUrl) return false
+  const origin = frontendUrl()
+  if (isLocalFrontendOrigin(origin)) return false
+
+  try {
+    return new URL(baseUrl).origin !== origin
+  } catch {
+    return false
+  }
+}
+
 function publicSessionUrl(sessionId) {
   const url = new URL(window.location.href)
-  const backendBase = API_BASE_URL || readBackendBaseFromUrl()
+  const backendBase = readBackendBaseFromUrl() || configuredApiBaseUrl()
   if (!sessionId) {
     url.searchParams.delete('session')
-    return url
-  }
-  url.searchParams.set('session', sessionId)
-  if (backendBase) {
-    url.searchParams.set('backend', backendBase)
   } else {
-    url.searchParams.delete('backend')
+    url.searchParams.set('session', sessionId)
   }
+  if (backendBase) url.searchParams.set('backend', backendBase)
+  else url.searchParams.delete('backend')
   return url
 }
 
 function readBackendBaseFromUrl() {
-  const value = new URL(window.location.href).searchParams.get('backend')
-  return String(value || '').trim().replace(/\/+$/, '')
+  const value = String(new URL(window.location.href).searchParams.get('backend') || '')
+    .trim()
+    .replace(/\/+$/, '')
+  if (shouldUseSameOriginProxy(API_BASE_URL) && value === API_BASE_URL) return ''
+  return value
+}
+
+function configuredApiBaseUrl() {
+  if (!API_BASE_URL || shouldUseSameOriginProxy(API_BASE_URL)) return ''
+  return API_BASE_URL
 }
 
 function currentApiBaseUrl() {
-  return API_BASE_URL || readBackendBaseFromUrl() || frontendUrl()
+  const backendBase = readBackendBaseFromUrl()
+  if (backendBase) return backendBase
+  return configuredApiBaseUrl() || frontendUrl()
+}
+
+function createTimedRequestSignal(timeoutMs, externalSignal) {
+  const controller = new AbortController()
+  let timedOut = false
+  let externalAbortHandler = null
+
+  const timeoutId =
+    timeoutMs > 0
+      ? window.setTimeout(() => {
+          timedOut = true
+          controller.abort()
+        }, timeoutMs)
+      : null
+
+  if (externalSignal) {
+    externalAbortHandler = () => controller.abort()
+    if (externalSignal.aborted) {
+      externalAbortHandler()
+    } else {
+      externalSignal.addEventListener('abort', externalAbortHandler, { once: true })
+    }
+  }
+
+  return {
+    signal: controller.signal,
+    didTimeout() {
+      return timedOut
+    },
+    cleanup() {
+      if (timeoutId !== null) window.clearTimeout(timeoutId)
+      if (externalSignal && externalAbortHandler) {
+        externalSignal.removeEventListener('abort', externalAbortHandler)
+      }
+    },
+  }
+}
+
+async function fetchWithTimeout(input, init = {}, timeoutMs = API_REQUEST_TIMEOUT_MS) {
+  const request = createTimedRequestSignal(timeoutMs, init.signal)
+
+  try {
+    return await fetch(input, { ...init, signal: request.signal })
+  } catch (error) {
+    const nextError = error instanceof Error ? error : new Error(String(error))
+    nextError.requestTimedOut = request.didTimeout()
+    throw nextError
+  } finally {
+    request.cleanup()
+  }
+}
+
+function isTimedOutRequest(error) {
+  return Boolean(error?.requestTimedOut)
 }
 
 function apiRootPath(path) {
@@ -675,6 +760,7 @@ function App() {
   const [templateFile, setTemplateFile] = useState(null)
   const [logoFile, setLogoFile] = useState(null)
   const [booted, setBooted] = useState(false)
+  const [backendUnavailable, setBackendUnavailable] = useState(false)
   const [baseImageVersion, setBaseImageVersion] = useState(Date.now())
   const [canvasViewport, setCanvasViewport] = useState(null)
 
@@ -711,12 +797,16 @@ function App() {
     setStatus('Рендер...')
 
     try {
-      const response = await fetch(apiPath(snapshot, 'render'), {
+      const response = await fetchWithTimeout(
+        apiPath(snapshot, 'render'),
+        {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(renderPayload(snapshot)),
         signal: controller.signal,
-      })
+        },
+        RENDER_REQUEST_TIMEOUT_MS,
+      )
 
       if (!response.ok) throw new Error(`${response.status}`)
 
@@ -728,12 +818,14 @@ function App() {
       previewUrlRef.current = nextUrl
       setPreviewUrl(nextUrl)
       setPreviewState('ready')
+      setBackendUnavailable(false)
       setStatus('Готово')
     } catch (error) {
-      if (controller.signal.aborted || error?.name === 'AbortError') return
+      if ((controller.signal.aborted || error?.name === 'AbortError') && !isTimedOutRequest(error)) return
       if (requestId === renderCounterRef.current) {
         setPreviewState('error')
-        setStatus('Ошибка рендера')
+        setBackendUnavailable(true)
+        setStatus(isTimedOutRequest(error) ? 'Backend отвечает слишком долго' : 'Ошибка рендера')
       }
     } finally {
       if (renderAbortRef.current === controller) {
@@ -752,11 +844,15 @@ function App() {
   }
 
   async function apiJson(path, payload) {
-    const response = await fetch(path, {
+    const response = await fetchWithTimeout(
+      path,
+      {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
-    })
+      },
+      API_REQUEST_TIMEOUT_MS,
+    )
     if (!response.ok) throw new Error(`${response.status}`)
     return response.json()
   }
@@ -870,7 +966,11 @@ function App() {
     setPreviewState('loading')
     setStatus('Загрузка...')
     try {
-      const response = await fetch(sessionCreatePath(), { method: 'POST', body: form })
+      const response = await fetchWithTimeout(
+        sessionCreatePath(),
+        { method: 'POST', body: form },
+        API_REQUEST_TIMEOUT_MS,
+      )
       if (!response.ok) throw new Error(`${response.status}`)
       const result = await response.json()
 
@@ -887,11 +987,13 @@ function App() {
       )
 
       refreshBaseImage()
+      setBackendUnavailable(false)
       setStatus('Сессия загружена')
       await renderPreview()
-    } catch {
+    } catch (error) {
       setPreviewState('error')
-      setStatus('Ошибка загрузки')
+      setBackendUnavailable(true)
+      setStatus(isTimedOutRequest(error) ? 'Backend отвечает слишком долго' : 'Ошибка загрузки')
     }
   }
 
@@ -929,7 +1031,7 @@ function App() {
 
       try {
         if (sessionId) {
-          const response = await fetch(statePath(sessionId))
+          const response = await fetchWithTimeout(statePath(sessionId), {}, BOOT_REQUEST_TIMEOUT_MS)
           if (response.ok) {
             const data = await response.json()
             nextState = applyStateData({ ...DEFAULT_APP_STATE, session_id: sessionId }, data)
@@ -940,7 +1042,7 @@ function App() {
         }
 
         if (!sessionId || !nextState.session_id) {
-          const response = await fetch(statePath(null))
+          const response = await fetchWithTimeout(statePath(null), {}, BOOT_REQUEST_TIMEOUT_MS)
           const data = await response.json()
           nextState = applyStateData(DEFAULT_APP_STATE, data)
         }
@@ -948,13 +1050,15 @@ function App() {
         if (!mounted) return
         commitApp(nextState)
         refreshBaseImage()
+        setBackendUnavailable(false)
         setBooted(true)
-      } catch {
+      } catch (error) {
         if (!mounted) return
         commitApp(DEFAULT_APP_STATE)
         setBooted(true)
+        setBackendUnavailable(true)
         setPreviewState('error')
-        setStatus('Не удалось загрузить backend')
+        setStatus(isTimedOutRequest(error) ? 'Backend недоступен' : 'Не удалось загрузить backend')
       }
     }
 
@@ -975,9 +1079,9 @@ function App() {
   }, [app.session_id, booted])
 
   useEffect(() => {
-    if (!booted) return
+    if (!booted || backendUnavailable) return
     renderPreview()
-  }, [booted])
+  }, [backendUnavailable, booted])
 
   useEffect(() => {
     const canvas = canvasRef.current

@@ -1,0 +1,16 @@
+{
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "https://backendprimerch.pythonanywhere.com/api/:path*"
+    },
+    {
+      "source": "/shirt.png",
+      "destination": "https://backendprimerch.pythonanywhere.com/shirt.png"
+    },
+    {
+      "source": "/logo.png",
+      "destination": "https://backendprimerch.pythonanywhere.com/logo.png"
+    }
+  ]
+}
