@@ -1,9 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import baseProducts from './base.json'
 
 const API_BASE_URL = String(import.meta.env.VITE_API_BASE_URL || '').trim().replace(/\/+$/, '')
-
-const BASE_PRODUCTS = Array.isArray(baseProducts) ? baseProducts : []
 
 const REGION_OPTIONS = [
   { value: 'auto', label: 'Авто' },
@@ -400,138 +397,6 @@ function computeCanvasViewport(canvas, garment) {
   }
 }
 
-function pickPrimaryPhoto(photos) {
-  if (!Array.isArray(photos)) return null
-  const isImage = (value) => /\.(png|jpe?g|webp)(\?|$)/i.test(String(value || ''))
-  return photos.find(isImage) || null
-}
-
-function extractImagePhotos(photos) {
-  if (!Array.isArray(photos)) return []
-  const isImage = (value) => /\.(png|jpe?g|webp)(\?|$)/i.test(String(value || ''))
-  const urls = photos.map((value) => String(value || '').trim()).filter(Boolean).filter(isImage)
-  return Array.from(new Set(urls))
-}
-
-function parsePrice(value) {
-  const text = String(value || '').replace(',', '.')
-  const cleaned = text.replace(/[^0-9.]/g, '')
-  const parsed = Number.parseFloat(cleaned)
-  return Number.isFinite(parsed) ? parsed : null
-}
-
-function productPriceLabel(product) {
-  const variants = Array.isArray(product?.variants) ? product.variants : []
-  const prices = variants.map((variant) => parsePrice(variant?.price)).filter((price) => price != null)
-  if (!prices.length) return null
-  const min = Math.min(...prices)
-  return `от ${Math.round(min)} ₽`
-}
-
-async function fileFromRemoteImage(url) {
-  const remoteUrl = String(url || '').trim()
-  if (!remoteUrl) throw new Error('Empty template url')
-
-  const withoutQuery = (() => {
-    try {
-      const parsed = new URL(remoteUrl)
-      parsed.search = ''
-      return parsed.toString()
-    } catch {
-      return remoteUrl.split('?')[0] || remoteUrl
-    }
-  })()
-
-  const fetchOrThrow = async (requestUrl) => {
-    const response = await fetch(requestUrl)
-    if (!response.ok) throw new Error(`${response.status}`)
-    return response
-  }
-
-  let response
-  if (import.meta.env.DEV) {
-    const proxyUrl = `/__imgproxy?url=${encodeURIComponent(remoteUrl)}`
-    try {
-      response = await fetchOrThrow(remoteUrl)
-    } catch {
-      try {
-        response = await fetchOrThrow(withoutQuery)
-      } catch {
-        response = await fetchOrThrow(proxyUrl)
-      }
-    }
-  } else {
-    try {
-      response = await fetchOrThrow(remoteUrl)
-    } catch {
-      response = await fetchOrThrow(withoutQuery)
-    }
-  }
-
-  const blob = await response.blob()
-  const contentType = blob.type || 'image/png'
-  const ext = contentType.includes('jpeg') ? 'jpg' : contentType.includes('webp') ? 'webp' : 'png'
-  return new File([blob], `template.${ext}`, { type: contentType })
-}
-
-function proxyImageSrc(url) {
-  const value = String(url || '').trim()
-  if (!value) return ''
-  if (!import.meta.env.DEV) return value
-  if (!/^https?:\/\//i.test(value)) return value
-  return `/__imgproxy?url=${encodeURIComponent(value)}`
-}
-
-function urlWithoutQuery(url) {
-  const value = String(url || '').trim()
-  if (!value) return ''
-  try {
-    const parsed = new URL(value)
-    parsed.search = ''
-    return parsed.toString()
-  } catch {
-    return value.split('?')[0] || value
-  }
-}
-
-function SmartImage({ url, className, alt, ...rest }) {
-  const original = String(url || '').trim()
-  const proxy = proxyImageSrc(original)
-  const stripped = urlWithoutQuery(original)
-
-  const candidates = Array.from(new Set(
-    (import.meta.env.DEV
-      ? [original, stripped, proxy]
-      : [original, stripped])
-      .map((value) => String(value || '').trim())
-      .filter(Boolean),
-  ))
-
-  const [index, setIndex] = useState(0)
-  const src = candidates[index] || ''
-
-  if (!src) {
-    return (
-      <div
-        className={className}
-        aria-label={alt || 'Image'}
-      />
-    )
-  }
-
-  return (
-    <img
-      className={className}
-      src={src}
-      alt={alt}
-      onError={() => {
-        setIndex((current) => (current + 1 < candidates.length ? current + 1 : current))
-      }}
-      {...rest}
-    />
-  )
-}
-
 function Section({ title, eyebrow, children }) {
   return (
     <section className="surface-panel space-y-4 p-5">
@@ -596,14 +461,8 @@ function App() {
   const [app, setApp] = useState(DEFAULT_APP_STATE)
   const [status, setStatus] = useState('Загрузка...')
   const [previewUrl, setPreviewUrl] = useState('')
+  const [templateFile, setTemplateFile] = useState(null)
   const [logoFile, setLogoFile] = useState(null)
-  const [templateQuery, setTemplateQuery] = useState('')
-  const [templateLimit, setTemplateLimit] = useState(24)
-  const [selectedTemplate, setSelectedTemplate] = useState(() => {
-    const first = BASE_PRODUCTS.find((product) => extractImagePhotos(product?.photos).length)
-    if (!first) return null
-    return { product: first, photoUrl: extractImagePhotos(first.photos)[0] || null }
-  })
   const [booted, setBooted] = useState(false)
   const [baseImageVersion, setBaseImageVersion] = useState(Date.now())
   const [canvasViewport, setCanvasViewport] = useState(null)
@@ -781,23 +640,16 @@ function App() {
   }
 
   async function handleUploadSession() {
-    if (!selectedTemplate?.photoUrl) {
-      setStatus('Выберите товар-шаблон')
-      return
-    }
-    if (!logoFile) {
-      setStatus('Выберите logo')
+    if (!templateFile || !logoFile) {
+      setStatus('Выберите template и logo')
       return
     }
 
     const form = new FormData()
-    setStatus('Готовим шаблон...')
-
+    form.append('template', templateFile)
+    form.append('logo', logoFile)
+    setStatus('Загрузка...')
     try {
-      const templateFile = await fileFromRemoteImage(selectedTemplate.photoUrl)
-      form.append('template', templateFile)
-      form.append('logo', logoFile)
-      setStatus('Загрузка...')
       const response = await fetch(sessionCreatePath(), { method: 'POST', body: form })
       if (!response.ok) throw new Error(`${response.status}`)
       const result = await response.json()
@@ -927,15 +779,6 @@ function App() {
     }
   }, [app.garment.w, app.garment.h])
 
-  const templateQueryNorm = templateQuery.trim().toLowerCase()
-  const templatesFiltered = BASE_PRODUCTS.filter((product) => {
-    const hasPhoto = Boolean(pickPrimaryPhoto(product?.photos))
-    if (!hasPhoto) return false
-    if (!templateQueryNorm) return true
-    return String(product?.product_name || '').toLowerCase().includes(templateQueryNorm)
-  })
-  const templatesVisible = templatesFiltered.slice(0, templateLimit)
-
   const bounds = getActiveBounds(app)
   const viewport = canvasViewport || {
     left: 0,
@@ -990,27 +833,15 @@ function App() {
           <aside className="space-y-5">
             <Section eyebrow="Session" title="Файлы и подключение">
               <div className="grid gap-3">
-                <div className="rounded-2xl border border-[var(--line)] bg-white/70 px-4 py-3">
-                  <div className="text-xs uppercase tracking-[0.22em] text-[var(--muted)]">Template</div>
-                  <div className="mt-2 flex items-center gap-3">
-                    {selectedTemplate?.photoUrl ? (
-                      <SmartImage
-                        className="h-12 w-12 flex-none rounded-xl border border-white/70 bg-white object-cover"
-                        url={selectedTemplate.photoUrl}
-                        alt={selectedTemplate.product?.product_name || 'Template'}
-                        loading="lazy"
-                      />
-                    ) : (
-                      <div className="h-12 w-12 flex-none rounded-xl border border-dashed border-[var(--line)] bg-white/50" />
-                    )}
-                    <div className="min-w-0">
-                      <div className="truncate text-sm font-semibold text-[var(--ink)]">
-                        {selectedTemplate?.product?.product_name || 'Не выбран'}
-                      </div>
-                      <div className="text-xs text-[var(--muted)]">Выбирается из base.json</div>
-                    </div>
-                  </div>
-                </div>
+                <label className="space-y-2">
+                  <span className="text-sm font-medium text-[var(--ink)]">Template image</span>
+                  <input
+                    className="studio-input file:mr-3 file:rounded-full file:border-0 file:bg-[var(--ink)] file:px-3 file:py-2 file:text-sm file:font-semibold file:text-white"
+                    type="file"
+                    accept="image/*"
+                    onChange={(event) => setTemplateFile(event.target.files?.[0] || null)}
+                  />
+                </label>
 
                 <label className="space-y-2">
                   <span className="text-sm font-medium text-[var(--ink)]">Logo image</span>
@@ -1263,169 +1094,6 @@ function App() {
 
           <main className="space-y-5">
             <section className="surface-panel overflow-hidden p-4 sm:p-5 lg:p-6">
-              <div className="flex flex-col gap-3 border-b border-[var(--line)] pb-4 sm:flex-row sm:items-end sm:justify-between">
-                <div>
-                  <div className="text-[0.68rem] font-semibold uppercase tracking-[0.28em] text-[var(--muted-strong)]">
-                    Templates
-                  </div>
-                  <h2 className="mt-1 text-2xl font-semibold tracking-[-0.04em] text-[var(--ink)]">
-                    Товары
-                  </h2>
-                </div>
-                <label className="w-full sm:max-w-sm">
-                  <div className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--muted-strong)]">
-                    Поиск
-                  </div>
-                  <input
-                    className="studio-input mt-2"
-                    placeholder="Например: бейсболка"
-                    value={templateQuery}
-                    onChange={(event) => {
-                      setTemplateQuery(event.target.value)
-                      setTemplateLimit(24)
-                    }}
-                  />
-                </label>
-              </div>
-
-              {selectedTemplate?.product ? (
-                <div className="mt-5 rounded-[26px] border border-white/70 bg-white/65 p-4 shadow-[0_18px_44px_rgba(15,23,42,0.06)]">
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="min-w-0">
-                      <div className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--muted-strong)]">
-                        Фотографии товара
-                      </div>
-                      <div className="mt-1 truncate text-sm font-semibold text-[var(--ink)]">
-                        {selectedTemplate.product.product_name || 'Без названия'}
-                      </div>
-                    </div>
-                    <div className="text-xs text-[var(--muted)]">
-                      {extractImagePhotos(selectedTemplate.product.photos).length} шт.
-                    </div>
-                  </div>
-
-                  <div className="mt-4 flex gap-3 overflow-x-auto pb-1">
-                    {extractImagePhotos(selectedTemplate.product.photos).map((url) => {
-                      const active = selectedTemplate.photoUrl === url
-                      return (
-                        <button
-                          key={url}
-                          type="button"
-                          className={`relative h-16 w-16 flex-none overflow-hidden rounded-2xl border bg-white transition hover:-translate-y-0.5 ${
-                            active
-                              ? 'border-[rgba(73,107,255,0.65)] ring-2 ring-[rgba(73,107,255,0.22)]'
-                              : 'border-white/70'
-                          }`}
-                          onClick={() =>
-                            setSelectedTemplate((current) =>
-                              current ? { ...current, photoUrl: url } : current,
-                            )
-                          }
-                          title={active ? 'Выбрано' : 'Выбрать фото'}
-                        >
-                          <SmartImage
-                            className="absolute inset-0 h-full w-full object-cover"
-                            url={url}
-                            alt="Photo"
-                            loading="lazy"
-                          />
-                        </button>
-                      )
-                    })}
-                  </div>
-                </div>
-              ) : null}
-
-              <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
-                {templatesVisible.map((product) => {
-                  const photoUrl = pickPrimaryPhoto(product?.photos)
-                  const isActive = selectedTemplate?.product?.product_url === product?.product_url
-                  const price = productPriceLabel(product)
-
-                  return (
-                    <button
-                      key={product.product_url || product.product_name}
-                      type="button"
-                      className={`group overflow-hidden rounded-[26px] border bg-white/70 text-left shadow-[0_18px_44px_rgba(15,23,42,0.08)] transition hover:-translate-y-0.5 hover:shadow-[0_26px_60px_rgba(15,23,42,0.12)] ${
-                        isActive
-                          ? 'border-[rgba(73,107,255,0.55)] ring-2 ring-[rgba(73,107,255,0.22)]'
-                          : 'border-white/70'
-                      }`}
-                      onClick={() => setSelectedTemplate({ product, photoUrl })}
-                    >
-                      <div className="relative aspect-[4/3] bg-[linear-gradient(180deg,rgba(248,250,252,0.95),rgba(226,232,240,0.95))]">
-                        {photoUrl ? (
-                          <SmartImage
-                            className="absolute inset-0 h-full w-full object-cover"
-                            url={photoUrl}
-                            alt={product.product_name || 'Product'}
-                            loading="lazy"
-                          />
-                        ) : null}
-                        <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(15,23,42,0.0),rgba(15,23,42,0.08))]" />
-                      </div>
-
-                      <div className="p-4">
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <div className="truncate text-sm font-semibold text-[var(--ink)]">
-                              {product.product_name || 'Без названия'}
-                            </div>
-                            {price ? (
-                              <div className="mt-1 text-xs font-semibold text-[var(--muted-strong)]">{price}</div>
-                            ) : (
-                              <div className="mt-1 text-xs text-[var(--muted)]">Цена не указана</div>
-                            )}
-                          </div>
-                          <div
-                            className={`flex-none rounded-full px-3 py-1 text-[0.65rem] font-semibold uppercase tracking-[0.22em] ${
-                              isActive
-                                ? 'bg-[rgba(73,107,255,0.12)] text-[rgba(32,69,246,0.9)]'
-                                : 'bg-[var(--chip)] text-[var(--muted-strong)]'
-                            }`}
-                          >
-                            {isActive ? 'Выбран' : 'Шаблон'}
-                          </div>
-                        </div>
-
-                        <div className="mt-3 flex items-center justify-between gap-3 text-xs text-[var(--muted)]">
-                          <div className="truncate">{String(product?.brand || '').trim() || '—'}</div>
-                          <div>{Array.isArray(product?.variants) ? `${product.variants.length} варианта` : '—'}</div>
-                        </div>
-
-                        {product?.product_url ? (
-                          <div className="mt-3 text-xs">
-                            <a
-                              className="text-[rgba(32,69,246,0.95)] underline decoration-[rgba(32,69,246,0.35)] underline-offset-4 hover:decoration-[rgba(32,69,246,0.7)]"
-                              href={product.product_url}
-                              target="_blank"
-                              rel="noreferrer"
-                              onClick={(event) => event.stopPropagation()}
-                            >
-                              Открыть товар
-                            </a>
-                          </div>
-                        ) : null}
-                      </div>
-                    </button>
-                  )
-                })}
-              </div>
-
-              {templatesVisible.length < templatesFiltered.length ? (
-                <div className="mt-6 flex justify-center">
-                  <button
-                    type="button"
-                    className="studio-button"
-                    onClick={() => setTemplateLimit((value) => value + 24)}
-                  >
-                    Показать ещё ({templatesFiltered.length - templatesVisible.length})
-                  </button>
-                </div>
-              ) : null}
-            </section>
-
-            <section className="surface-panel overflow-hidden p-4 sm:p-5 lg:p-6">
               <div className="mb-4 flex flex-col gap-3 border-b border-[var(--line)] pb-4 lg:flex-row lg:items-end lg:justify-between">
                 <div>
                   <div className="text-[0.68rem] font-semibold uppercase tracking-[0.28em] text-[var(--muted-strong)]">
@@ -1507,7 +1175,7 @@ function App() {
                   <div className="rounded-[28px] border border-[var(--line)] bg-[linear-gradient(180deg,rgba(17,24,39,0.96),rgba(31,41,55,0.96))] p-5 text-white shadow-[0_28px_70px_rgba(15,23,42,0.18)]">
                     <div className="text-[0.68rem] uppercase tracking-[0.28em] text-white/60">Workflow</div>
                     <div className="mt-3 space-y-3 text-sm text-white/78">
-                      <p>1. Выбери товар-шаблон из base.json и загрузи logo.</p>
+                      <p>1. Загрузи template и logo для нового товара.</p>
                       <p>2. Выбери зону и режим, потом жми autoplace или двигай вручную.</p>
                       <p>3. Настрой realism / embroidery и скачай итоговый PNG.</p>
                     </div>
