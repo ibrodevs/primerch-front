@@ -11,10 +11,98 @@ const REGION_OPTIONS = [
   { value: 'right_sleeve', label: 'Правый рукав' },
 ]
 
-const MODE_OPTIONS = [
-  { value: 'print', label: 'Print' },
-  { value: 'embroidery', label: 'Embroidery' },
-]
+const MODE_LABELS = {
+  print: 'Print',
+  embroidery: 'Embroidery',
+  screen_print: 'Screen Print',
+  dtf: 'DTF',
+  dtg: 'DTG',
+  heat_transfer: 'Heat Transfer',
+  sublimation: 'Sublimation',
+  flex: 'Flex',
+  flock: 'Flock',
+  puff: 'Puff',
+  high_density: 'High Density',
+  reflective: 'Reflective',
+  foil: 'Foil',
+  glitter: 'Glitter',
+  neon: 'Neon',
+  glow: 'Glow',
+  rubber_print: 'Rubber Print',
+  water_based: 'Water Based',
+  plastisol: 'Plastisol',
+}
+
+const MODE_DESCRIPTIONS = {
+  print: 'Базовый принт с реалистичным впитыванием и влиянием ткани.',
+  embroidery: 'Вышивка с рельефом, нитяной текстурой и тенями по краю.',
+  screen_print: 'Плотная шелкография: ярко, плоско, с минимальной текстурой ткани.',
+  dtf: 'Пленочный перенос: слегка отделяется от ткани, есть мягкая подложка и пластик.',
+  dtg: 'Прямая печать по ткани: мягкие края, ниже контраст, сильнее впитывание.',
+  heat_transfer: 'Термотрансфер: гладкая наклейка с легким глянцем.',
+  sublimation: 'Сублимация: почти без границ, максимально интегрирована в ткань.',
+  flex: 'Ровная пленка с четким контуром и почти без текстуры ткани.',
+  flock: 'Бархатистая поверхность с мягким ворсом и глубиной.',
+  puff: 'Вспененный объемный принт с расширенным силуэтом и рельефом.',
+  high_density: 'Плотный высокий принт с жестким краем и направленным светом.',
+  reflective: 'Светоотражающий материал с сильными бликами в ярких областях.',
+  foil: 'Металлизированная фольга с зеркальными градиентами и сдвигом цвета.',
+  glitter: 'Блестки с искрами, шумом и яркими отражающими точками.',
+  neon: 'Кислотный яркий цвет с внешним свечением.',
+  glow: 'Фосфоресцентный эффект с мягким ореолом по краю.',
+  rubber_print: 'Плотный резиновый слой с мягким краем и умеренной толщиной.',
+  water_based: 'Мягкий водный принт с сильной интеграцией в ткань.',
+  plastisol: 'Яркий плотный слой с высоким контрастом и насыщенностью.',
+}
+
+const MODE_OPTIONS = Object.entries(MODE_LABELS).map(([value, label]) => ({ value, label }))
+
+const MODE_PRESETS = {
+  print: {
+    print_params: {
+      opacity: 0.85,
+      blend_mode: 'normal',
+      displacement_strength: 2.75,
+      cylindrical_strength: 0.11,
+      ink_strength: 0.85,
+      absorption_blur: 0.55,
+      absorption_alpha_soften: 0.965,
+      shade_strength: 0.9,
+      texture_strength: 0.22,
+      edge_soften: 0.35,
+      ink_bleed: 0.12,
+      preserve_texture: 0.3,
+      dye_strength: 0,
+    },
+  },
+  embroidery: {
+    embroidery_params: {
+      embroidery_depth: 0.35,
+      stitch_density: 0.7,
+      thread_shine: 0.2,
+      edge_raised: 0.25,
+      fabric_influence: 0.35,
+      thread_texture_strength: 0.6,
+    },
+  },
+  screen_print: { material_params: { intensity: 0.78, texture_strength: 0.12, depth: 0.22, gloss: 0.14 } },
+  dtf: { material_params: { intensity: 0.78, texture_strength: 0.26, depth: 0.46, gloss: 0.4 } },
+  dtg: { material_params: { intensity: 0.62, texture_strength: 0.82, depth: 0.14, gloss: 0.08 } },
+  heat_transfer: { material_params: { intensity: 0.74, texture_strength: 0.16, depth: 0.3, gloss: 0.46 } },
+  sublimation: { material_params: { intensity: 0.58, texture_strength: 0.94, depth: 0.04, gloss: 0.02 } },
+  flex: { material_params: { intensity: 0.72, texture_strength: 0.05, depth: 0.24, gloss: 0.28 } },
+  flock: { material_params: { intensity: 0.68, texture_strength: 0.32, depth: 0.54, gloss: 0.08 } },
+  puff: { material_params: { intensity: 0.8, texture_strength: 0.14, depth: 0.86, gloss: 0.22 } },
+  high_density: { material_params: { intensity: 0.82, texture_strength: 0.12, depth: 0.92, gloss: 0.34 } },
+  reflective: { material_params: { intensity: 0.82, texture_strength: 0.18, depth: 0.36, gloss: 0.92 } },
+  foil: { material_params: { intensity: 0.88, texture_strength: 0.08, depth: 0.34, gloss: 0.96 } },
+  glitter: { material_params: { intensity: 0.86, texture_strength: 0.14, depth: 0.28, gloss: 0.8 } },
+  neon: { material_params: { intensity: 0.9, texture_strength: 0.12, depth: 0.16, gloss: 0.56 } },
+  glow: { material_params: { intensity: 0.82, texture_strength: 0.18, depth: 0.12, gloss: 0.68 } },
+  rubber_print: { material_params: { intensity: 0.74, texture_strength: 0.24, depth: 0.46, gloss: 0.24 } },
+  water_based: { material_params: { intensity: 0.56, texture_strength: 0.84, depth: 0.08, gloss: 0.04 } },
+  plastisol: { material_params: { intensity: 0.84, texture_strength: 0.14, depth: 0.42, gloss: 0.38 } },
+}
 
 const PRINT_CONTROLS = [
   { key: 'cylindrical_strength', label: 'Curvature', min: 0, max: 0.25, step: 0.005 },
@@ -36,6 +124,13 @@ const EMBROIDERY_CONTROLS = [
   { key: 'thread_texture_strength', label: 'Thread texture', min: 0, max: 1, step: 0.01 },
 ]
 
+const MATERIAL_CONTROLS = [
+  { key: 'intensity', label: 'Intensity', min: 0, max: 1, step: 0.01 },
+  { key: 'texture_strength', label: 'Texture transfer', min: 0, max: 1, step: 0.01 },
+  { key: 'depth', label: 'Depth', min: 0, max: 1, step: 0.01 },
+  { key: 'gloss', label: 'Gloss', min: 0, max: 1, step: 0.01 },
+]
+
 const DEFAULT_APP_STATE = {
   garment: { w: 600, h: 600 },
   print_bounds: { x: 0, y: 0, w: 600, h: 600 },
@@ -46,6 +141,7 @@ const DEFAULT_APP_STATE = {
   lock_region: true,
   session_id: null,
   mode: 'print',
+  supported_render_modes: MODE_OPTIONS.map((option) => option.value),
   region: 'auto',
   downscale: 1,
   overlay_type: 'logo',
@@ -76,6 +172,33 @@ const DEFAULT_APP_STATE = {
     fabric_influence: 0.35,
     thread_texture_strength: 0.6,
   },
+  material_params: {
+    intensity: 0.65,
+    texture_strength: 0.5,
+    depth: 0.35,
+    gloss: 0.25,
+  },
+}
+
+const PREVIEW_STATE_META = {
+  loading: {
+    label: 'Загрузка',
+    badgeClass:
+      'border-blue-200/80 bg-white/90 text-blue-700 shadow-[0_18px_40px_rgba(32,69,246,0.12)]',
+    dotClass: 'bg-blue-500',
+  },
+  ready: {
+    label: 'Готово',
+    badgeClass:
+      'border-emerald-200/80 bg-white/90 text-emerald-700 shadow-[0_18px_40px_rgba(34,197,94,0.12)]',
+    dotClass: 'bg-emerald-500',
+  },
+  error: {
+    label: 'Ошибка',
+    badgeClass:
+      'border-rose-200/80 bg-white/90 text-rose-700 shadow-[0_18px_40px_rgba(244,63,94,0.14)]',
+    dotClass: 'bg-rose-500',
+  },
 }
 
 function num(value, fallback = 0) {
@@ -105,6 +228,46 @@ function normalizeRotationDeg(value) {
   if (angle > 180) angle -= 360
   if (angle < -180) angle += 360
   return Math.abs(angle) < 1e-6 ? 0 : angle
+}
+
+function isEmbroideryMode(mode) {
+  return String(mode || '').toLowerCase() === 'embroidery'
+}
+
+function isPrintMode(mode) {
+  return String(mode || '').toLowerCase() === 'print'
+}
+
+function isMaterialMode(mode) {
+  return !isPrintMode(mode) && !isEmbroideryMode(mode)
+}
+
+function buildModeOptions(modes) {
+  const raw = Array.isArray(modes) && modes.length ? modes : MODE_OPTIONS.map((option) => option.value)
+  return raw.map((value) => ({
+    value,
+    label: MODE_LABELS[value] || String(value || '').replace(/_/g, ' '),
+  }))
+}
+
+function modeLabel(mode) {
+  return MODE_LABELS[String(mode || '').toLowerCase()] || String(mode || '').replace(/_/g, ' ')
+}
+
+function modeDescription(mode) {
+  return MODE_DESCRIPTIONS[String(mode || '').toLowerCase()] || 'Параметры зависят от выбранной технологии нанесения.'
+}
+
+function applyModePreset(app, mode) {
+  const normalizedMode = String(mode || 'print').toLowerCase()
+  const preset = MODE_PRESETS[normalizedMode] || {}
+  return normalizeAppState({
+    ...app,
+    mode: normalizedMode,
+    print_params: { ...app.print_params, ...(preset.print_params || {}) },
+    embroidery_params: { ...app.embroidery_params, ...(preset.embroidery_params || {}) },
+    material_params: { ...app.material_params, ...(preset.material_params || {}) },
+  })
 }
 
 function rectFromBounds(bounds, xa, ya, xb, yb) {
@@ -175,6 +338,10 @@ function normalizeAppState(input) {
     size_ref: { ...input.size_ref },
     print_params: { ...input.print_params },
     embroidery_params: { ...input.embroidery_params },
+    material_params: { ...input.material_params },
+    supported_render_modes: Array.isArray(input.supported_render_modes)
+      ? [...input.supported_render_modes]
+      : MODE_OPTIONS.map((option) => option.value),
   }
   const bounds = getActiveBounds(app)
   app.scale = clamp(num(app.scale, 1), 0.2, 3)
@@ -225,7 +392,10 @@ function applyStateData(current, data) {
     region_bounds:
       data.region_bounds && typeof data.region_bounds === 'object' ? { ...data.region_bounds } : current.region_bounds,
     placement: { ...current.placement, ...(data.placement || {}) },
-    mode: modeRaw === 'embroidery' ? 'embroidery' : 'print',
+    mode: modeRaw || 'print',
+    supported_render_modes: Array.isArray(data.supported_render_modes)
+      ? [...data.supported_render_modes]
+      : current.supported_render_modes,
     region: data.region || current.region,
     overlay_type: data.overlay_type || current.overlay_type,
     text: typeof data.text === 'string' ? data.text : current.text,
@@ -235,6 +405,7 @@ function applyStateData(current, data) {
     logo_color: typeof data.logo_color === 'string' ? normalizeHexColor(data.logo_color, current.logo_color) : current.logo_color,
     print_params: { ...current.print_params, ...(data.print_params || {}) },
     embroidery_params: { ...current.embroidery_params, ...(data.embroidery_params || {}) },
+    material_params: { ...current.material_params, ...(data.material_params || {}) },
     downscale: 1,
   }
 
@@ -248,6 +419,12 @@ function applyStateData(current, data) {
   }
   if (Number.isFinite(num(data.texture, Number.NaN))) {
     next.print_params.texture_strength = num(data.texture, 0.5) / 1.6
+  }
+  if (Number.isFinite(num(data.intensity, Number.NaN))) next.material_params.intensity = num(data.intensity, next.material_params.intensity)
+  if (Number.isFinite(num(data.depth, Number.NaN))) next.material_params.depth = num(data.depth, next.material_params.depth)
+  if (Number.isFinite(num(data.gloss, Number.NaN))) next.material_params.gloss = num(data.gloss, next.material_params.gloss)
+  if (Number.isFinite(num(data.texture_strength, Number.NaN)) && !Number.isFinite(num(data.texture, Number.NaN))) {
+    next.material_params.texture_strength = num(data.texture_strength, next.material_params.texture_strength)
   }
 
   ;[
@@ -319,6 +496,31 @@ function apiPathForSession(sessionId, endpoint) {
   return assetUrl(`/api/session/${encodeURIComponent(sessionId)}/${clean}`)
 }
 
+function controlsForMode(mode) {
+  if (isEmbroideryMode(mode)) {
+    return {
+      eyebrow: 'Embroidery',
+      title: 'Параметры вышивки',
+      controls: EMBROIDERY_CONTROLS,
+      source: 'embroidery_params',
+    }
+  }
+  if (isPrintMode(mode)) {
+    return {
+      eyebrow: 'Print realism',
+      title: 'Параметры print',
+      controls: PRINT_CONTROLS,
+      source: 'print_params',
+    }
+  }
+  return {
+    eyebrow: `${modeLabel(mode)} material`,
+    title: `Параметры ${modeLabel(mode)}`,
+    controls: MATERIAL_CONTROLS,
+    source: 'material_params',
+  }
+}
+
 function statePath(sessionId) {
   return sessionId ? apiPathForSession(sessionId, 'state') : apiRootPath('/api/state')
 }
@@ -337,6 +539,10 @@ function garmentImagePath(sessionId, version) {
 function renderPayload(app) {
   const print = app.print_params
   const embroidery = app.embroidery_params
+  const material = app.material_params
+  const textureStrength = isMaterialMode(app.mode)
+    ? num(material.texture_strength, 0.5)
+    : num(print.texture_strength, 0.22) * 1.6
 
   return {
     x: app.placement.x,
@@ -356,11 +562,14 @@ function renderPayload(app) {
     blend_mode: String(print.blend_mode || 'normal'),
     distortion_strength: num(print.displacement_strength, 2.75) * 0.18,
     lighting_strength: num(print.shade_strength, 0.9),
-    texture_strength: num(print.texture_strength, 0.22) * 1.6,
+    texture_strength: textureStrength,
     brightness_strength: num(print.ink_strength, 0.85),
     edge_softness: num(print.edge_soften, 0.35),
     bleed_strength: num(print.ink_bleed, 0.12) * 2,
     color_strength: num(print.dye_strength, 0),
+    intensity: num(material.intensity, 0.65),
+    depth: num(material.depth, 0.35),
+    gloss: num(material.gloss, 0.25),
     embroidery_depth: num(embroidery.embroidery_depth, 0.35),
     stitch_density: num(embroidery.stitch_density, 0.7),
     thread_shine: num(embroidery.thread_shine, 0.2),
@@ -369,6 +578,7 @@ function renderPayload(app) {
     thread_texture_strength: num(embroidery.thread_texture_strength, 0.6),
     print_params: print,
     embroidery_params: embroidery,
+    material_params: material,
   }
 }
 
@@ -460,6 +670,7 @@ function Metric({ label, value }) {
 function App() {
   const [app, setApp] = useState(DEFAULT_APP_STATE)
   const [status, setStatus] = useState('Загрузка...')
+  const [previewState, setPreviewState] = useState('loading')
   const [previewUrl, setPreviewUrl] = useState('')
   const [templateFile, setTemplateFile] = useState(null)
   const [logoFile, setLogoFile] = useState(null)
@@ -474,6 +685,8 @@ function App() {
   const renderCounterRef = useRef(0)
   const canvasRef = useRef(null)
   const dragRef = useRef({ active: false, dx: 0, dy: 0 })
+  const modeOptions = buildModeOptions(app.supported_render_modes)
+  const modeControlGroup = controlsForMode(app.mode)
 
   function commitApp(nextOrUpdater) {
     const next =
@@ -494,6 +707,7 @@ function App() {
     renderAbortRef.current?.abort()
     const controller = new AbortController()
     renderAbortRef.current = controller
+    setPreviewState('loading')
     setStatus('Рендер...')
 
     try {
@@ -513,10 +727,14 @@ function App() {
       if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current)
       previewUrlRef.current = nextUrl
       setPreviewUrl(nextUrl)
+      setPreviewState('ready')
       setStatus('Готово')
     } catch (error) {
       if (controller.signal.aborted || error?.name === 'AbortError') return
-      if (requestId === renderCounterRef.current) setStatus('Ошибка рендера')
+      if (requestId === renderCounterRef.current) {
+        setPreviewState('error')
+        setStatus('Ошибка рендера')
+      }
     } finally {
       if (renderAbortRef.current === controller) {
         renderAbortRef.current = null
@@ -526,6 +744,7 @@ function App() {
 
   function queueRender(delay = 120) {
     if (!booted) return
+    setPreviewState('loading')
     window.clearTimeout(renderTimeoutRef.current)
     renderTimeoutRef.current = window.setTimeout(() => {
       renderPreview()
@@ -648,6 +867,7 @@ function App() {
     const form = new FormData()
     form.append('template', templateFile)
     form.append('logo', logoFile)
+    setPreviewState('loading')
     setStatus('Загрузка...')
     try {
       const response = await fetch(sessionCreatePath(), { method: 'POST', body: form })
@@ -670,6 +890,7 @@ function App() {
       setStatus('Сессия загружена')
       await renderPreview()
     } catch {
+      setPreviewState('error')
       setStatus('Ошибка загрузки')
     }
   }
@@ -700,6 +921,7 @@ function App() {
     let mounted = true
 
     async function boot() {
+      setPreviewState('loading')
       setStatus('Загрузка...')
       const url = new URL(window.location.href)
       const sessionId = url.searchParams.get('session')
@@ -731,6 +953,7 @@ function App() {
         if (!mounted) return
         commitApp(DEFAULT_APP_STATE)
         setBooted(true)
+        setPreviewState('error')
         setStatus('Не удалось загрузить backend')
       }
     }
@@ -804,6 +1027,8 @@ function App() {
   }
 
   const baseImageSrc = garmentImagePath(app.session_id, baseImageVersion)
+  const previewMeta = PREVIEW_STATE_META[previewState] || PREVIEW_STATE_META.loading
+  const isPreviewBusy = previewState === 'loading'
 
   return (
     <div className="min-h-screen px-4 py-5 text-[var(--ink)] sm:px-6 lg:px-8">
@@ -821,8 +1046,7 @@ function App() {
               </div>
             </div>
 
-            <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
-              <Metric label="Статус" value={status} />
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
               <Metric label="Сессия" value={app.session_id ? app.session_id.slice(0, 12) : 'default'} />
               <Metric label="Overlay" value={app.overlay_type === 'text' ? 'Text' : 'Logo'} />
             </div>
@@ -865,9 +1089,9 @@ function App() {
                   <SelectField
                     label="Mode"
                     value={app.mode}
-                    options={MODE_OPTIONS}
+                    options={modeOptions}
                     onChange={(value) => {
-                      commitApp((current) => ({ ...current, mode: value === 'embroidery' ? 'embroidery' : 'print' }))
+                      commitApp((current) => applyModePreset(current, value || 'print'))
                       queueRender(70)
                     }}
                   />
@@ -884,6 +1108,11 @@ function App() {
                       }
                     }}
                   />
+                </div>
+
+                <div className="rounded-2xl border border-[var(--line)] bg-white/70 px-4 py-3">
+                  <div className="text-sm font-medium text-[var(--ink)]">{modeLabel(app.mode)}</div>
+                  <div className="mt-1 text-xs leading-5 text-[var(--muted)]">{modeDescription(app.mode)}</div>
                 </div>
 
                 <label className="flex items-center justify-between gap-3 rounded-2xl border border-[var(--line)] bg-white/70 px-4 py-3">
@@ -1056,34 +1285,26 @@ function App() {
             </Section>
 
             <Section
-              eyebrow={app.mode === 'print' ? 'Print realism' : 'Embroidery'}
-              title={app.mode === 'print' ? 'Параметры материала' : 'Параметры вышивки'}
+              eyebrow={modeControlGroup.eyebrow}
+              title={modeControlGroup.title}
             >
               <div className="grid gap-4">
-                {(app.mode === 'print' ? PRINT_CONTROLS : EMBROIDERY_CONTROLS).map((control) => (
+                {modeControlGroup.controls.map((control) => (
                   <SliderField
                     key={control.key}
                     label={control.label}
-                    value={
-                      app.mode === 'print'
-                        ? app.print_params[control.key]
-                        : app.embroidery_params[control.key]
-                    }
+                    value={app[modeControlGroup.source][control.key]}
                     min={control.min}
                     max={control.max}
                     step={control.step}
                     onChange={(value) => {
-                      if (app.mode === 'print') {
-                        commitApp((current) => ({
-                          ...current,
-                          print_params: { ...current.print_params, [control.key]: value },
-                        }))
-                      } else {
-                        commitApp((current) => ({
-                          ...current,
-                          embroidery_params: { ...current.embroidery_params, [control.key]: value },
-                        }))
-                      }
+                      commitApp((current) => ({
+                        ...current,
+                        [modeControlGroup.source]: {
+                          ...current[modeControlGroup.source],
+                          [control.key]: value,
+                        },
+                      }))
                       queueRender(80)
                     }}
                   />
@@ -1117,6 +1338,7 @@ function App() {
                   <div
                     ref={canvasRef}
                     className="relative aspect-square overflow-hidden rounded-[30px] border border-white/70 bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.92),_rgba(238,243,248,0.9)_55%,_rgba(227,232,240,0.95))] shadow-[0_36px_90px_rgba(15,23,42,0.12)]"
+                    aria-busy={isPreviewBusy}
                     onPointerDown={handlePointerDown}
                     onPointerMove={handlePointerMove}
                     onPointerUp={handlePointerUp}
@@ -1141,6 +1363,15 @@ function App() {
                     <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,_transparent_38%,_rgba(15,23,42,0.06)_100%)]" />
 
                     <div
+                      className={`pointer-events-none absolute right-4 top-4 z-20 inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold uppercase tracking-[0.14em] backdrop-blur ${previewMeta.badgeClass}`}
+                    >
+                      <span
+                        className={`h-2.5 w-2.5 rounded-full ${previewMeta.dotClass} ${isPreviewBusy ? 'animate-pulse' : ''}`}
+                      />
+                      {status}
+                    </div>
+
+                    <div
                       className="pointer-events-none absolute rounded-[20px] border border-dashed border-[rgba(73,107,255,0.4)] bg-[rgba(73,107,255,0.08)]"
                       style={regionStyle}
                     />
@@ -1158,7 +1389,7 @@ function App() {
                   <div className="grid gap-3 sm:grid-cols-3">
                     <div className="rounded-3xl border border-[var(--line)] bg-white/75 p-4">
                       <div className="text-xs uppercase tracking-[0.22em] text-[var(--muted)]">Режим</div>
-                      <div className="mt-2 text-lg font-semibold text-[var(--ink)]">{app.mode}</div>
+                      <div className="mt-2 text-lg font-semibold text-[var(--ink)]">{modeLabel(app.mode)}</div>
                     </div>
                     <div className="rounded-3xl border border-[var(--line)] bg-white/75 p-4">
                       <div className="text-xs uppercase tracking-[0.22em] text-[var(--muted)]">Зона</div>
@@ -1177,8 +1408,16 @@ function App() {
                     <div className="mt-3 space-y-3 text-sm text-white/78">
                       <p>1. Загрузи template и logo для нового товара.</p>
                       <p>2. Выбери зону и режим, потом жми autoplace или двигай вручную.</p>
-                      <p>3. Настрой realism / embroidery и скачай итоговый PNG.</p>
+                      <p>3. Для выбранного режима настрой material, print или embroidery параметры и скачай PNG.</p>
                     </div>
+                  </div>
+
+                  <div className="rounded-[28px] border border-[var(--line)] bg-white/75 p-5">
+                    <div className="text-[0.68rem] uppercase tracking-[0.28em] text-[var(--muted-strong)]">
+                      Active Mode
+                    </div>
+                    <div className="mt-3 text-lg font-semibold text-[var(--ink)]">{modeLabel(app.mode)}</div>
+                    <p className="mt-2 text-sm leading-6 text-[var(--muted)]">{modeDescription(app.mode)}</p>
                   </div>
 
                   <div className="rounded-[28px] border border-[var(--line)] bg-white/75 p-5">
