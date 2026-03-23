@@ -146,7 +146,7 @@ const DEFAULT_APP_STATE = {
   mode: 'print',
   supported_render_modes: MODE_OPTIONS.map((option) => option.value),
   region: 'auto',
-  downscale: 0.5,
+  downscale: 1,
   overlay_type: 'logo',
   text: '',
   text_color: '#080808',
@@ -1299,9 +1299,9 @@ function App() {
                   label="Preview scale"
                   value={String(app.downscale)}
                   options={[
-                    { value: '1', label: '1.0x' },
-                    { value: '0.75', label: '0.75x' },
-                    { value: '0.5', label: '0.5x' },
+                    { value: '1', label: '1.0x quality' },
+                    { value: '0.75', label: '0.75x faster' },
+                    { value: '0.5', label: '0.5x fastest' },
                   ]}
                   onChange={(value) => {
                     commitApp((current) => ({ ...current, downscale: Number(value) }))
