@@ -112,9 +112,9 @@ export default defineConfig({
     port: 5174,
     strictPort: true,
     proxy: {
-      '/api': 'http://127.0.0.1:5173',
-      '/shirt.png': 'http://127.0.0.1:5173',
-      '/logo.png': 'http://127.0.0.1:5173',
+      '/api': 'https://backendprimerch.pythonanywhere.com',
+      '/shirt.png': 'https://backendprimerch.pythonanywhere.com',
+      '/logo.png': 'https://backendprimerch.pythonanywhere.com',
     },
   },
 })
