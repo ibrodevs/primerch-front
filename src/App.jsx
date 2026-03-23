@@ -146,7 +146,7 @@ const DEFAULT_APP_STATE = {
   mode: 'print',
   supported_render_modes: MODE_OPTIONS.map((option) => option.value),
   region: 'auto',
-  downscale: 1,
+  downscale: 0.5,
   overlay_type: 'logo',
   text: '',
   text_color: '#080808',
@@ -353,6 +353,7 @@ function normalizeAppState(input) {
   app.placement.x = clamp(Math.round(num(app.placement.x, bounds.x)), bounds.x, bounds.x + bounds.w - app.placement.width)
   app.placement.y = clamp(Math.round(num(app.placement.y, bounds.y)), bounds.y, bounds.y + bounds.h - app.placement.height)
   app.placement.rotation = normalizeRotationDeg(num(app.placement.rotation, 0))
+  app.downscale = clamp(num(app.downscale, DEFAULT_APP_STATE.downscale), 0.25, 1)
   app.text_color = normalizeHexColor(app.text_color, '#080808')
   app.logo_color = normalizeHexColor(app.logo_color, '#111111')
   return app
@@ -409,7 +410,7 @@ function applyStateData(current, data) {
     print_params: { ...current.print_params, ...(data.print_params || {}) },
     embroidery_params: { ...current.embroidery_params, ...(data.embroidery_params || {}) },
     material_params: { ...current.material_params, ...(data.material_params || {}) },
-    downscale: 1,
+    downscale: current.downscale,
   }
 
   if (Number.isFinite(num(data.opacity, Number.NaN))) next.print_params.opacity = num(data.opacity, next.print_params.opacity)
@@ -768,7 +769,9 @@ function App() {
   const previewUrlRef = useRef('')
   const renderTimeoutRef = useRef(null)
   const renderAbortRef = useRef(null)
-  const renderCounterRef = useRef(0)
+  const renderInFlightRef = useRef(false)
+  const renderQueuedRef = useRef(false)
+  const lastRequestedRenderRef = useRef(null)
   const canvasRef = useRef(null)
   const dragRef = useRef({ active: false, dx: 0, dy: 0 })
   const modeOptions = buildModeOptions(app.supported_render_modes)
@@ -787,51 +790,67 @@ function App() {
     setBaseImageVersion(Date.now())
   }
 
-  async function renderPreview() {
-    const snapshot = appRef.current
-    const requestId = ++renderCounterRef.current
-    renderAbortRef.current?.abort()
-    const controller = new AbortController()
-    renderAbortRef.current = controller
-    setPreviewState('loading')
-    setStatus('Рендер...')
-
-    try {
-      const response = await fetchWithTimeout(
-        apiPath(snapshot, 'render'),
-        {
+  async function fetchRenderBlob(snapshot, overrides = {}, signal = undefined) {
+    const response = await fetchWithTimeout(
+      apiPath(snapshot, 'render'),
+      {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(renderPayload(snapshot)),
-        signal: controller.signal,
-        },
-        RENDER_REQUEST_TIMEOUT_MS,
-      )
+        body: JSON.stringify({ ...renderPayload(snapshot), ...overrides }),
+        signal,
+      },
+      RENDER_REQUEST_TIMEOUT_MS,
+    )
+    if (!response.ok) throw new Error(`${response.status}`)
+    return response.blob()
+  }
 
-      if (!response.ok) throw new Error(`${response.status}`)
-
-      const blob = await response.blob()
-      if (requestId !== renderCounterRef.current || controller.signal.aborted) return
-
-      const nextUrl = URL.createObjectURL(blob)
-      if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current)
-      previewUrlRef.current = nextUrl
-      setPreviewUrl(nextUrl)
-      setPreviewState('ready')
-      setBackendUnavailable(false)
-      setStatus('Готово')
-    } catch (error) {
-      if ((controller.signal.aborted || error?.name === 'AbortError') && !isTimedOutRequest(error)) return
-      if (requestId === renderCounterRef.current) {
-        setPreviewState('error')
-        setBackendUnavailable(true)
-        setStatus(isTimedOutRequest(error) ? 'Backend отвечает слишком долго' : 'Ошибка рендера')
-      }
-    } finally {
-      if (renderAbortRef.current === controller) {
-        renderAbortRef.current = null
-      }
+  async function renderPreview(snapshotOverride = null) {
+    lastRequestedRenderRef.current = snapshotOverride ? normalizeAppState(snapshotOverride) : appRef.current
+    if (renderInFlightRef.current) {
+      renderQueuedRef.current = true
+      setPreviewState('loading')
+      return false
     }
+
+    renderInFlightRef.current = true
+    try {
+      do {
+        renderQueuedRef.current = false
+        const snapshot = lastRequestedRenderRef.current || appRef.current
+        const controller = new AbortController()
+        renderAbortRef.current = controller
+        setPreviewState('loading')
+        setStatus('Рендер...')
+
+        try {
+          const blob = await fetchRenderBlob(snapshot, {}, controller.signal)
+          if (controller.signal.aborted) return false
+
+          const nextUrl = URL.createObjectURL(blob)
+          if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current)
+          previewUrlRef.current = nextUrl
+          setPreviewUrl(nextUrl)
+          setPreviewState('ready')
+          setBackendUnavailable(false)
+          setStatus('Готово')
+        } catch (error) {
+          if ((controller.signal.aborted || error?.name === 'AbortError') && !isTimedOutRequest(error)) {
+            return false
+          }
+          setPreviewState('error')
+          setBackendUnavailable(true)
+          setStatus(isTimedOutRequest(error) ? 'Backend отвечает слишком долго' : 'Ошибка рендера')
+        } finally {
+          if (renderAbortRef.current === controller) {
+            renderAbortRef.current = null
+          }
+        }
+      } while (renderQueuedRef.current)
+    } finally {
+      renderInFlightRef.current = false
+    }
+    return true
   }
 
   function queueRender(delay = 120) {
@@ -998,21 +1017,21 @@ function App() {
   }
 
   async function handleDownload() {
-    if (!previewUrlRef.current) {
-      await renderPreview()
+    setStatus('Готовим PNG...')
+    try {
+      const blob = await fetchRenderBlob(appRef.current, { downscale: 1 })
+      const downloadUrl = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = downloadUrl
+      link.download = appRef.current.overlay_type === 'text' ? 'text-render.png' : 'logo-render.png'
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      window.setTimeout(() => URL.revokeObjectURL(downloadUrl), 0)
+      setStatus('PNG сохранен')
+    } catch (error) {
+      setStatus(isTimedOutRequest(error) ? 'Backend отвечает слишком долго' : 'Не удалось скачать PNG')
     }
-    if (!previewUrlRef.current) {
-      setStatus('Нечего скачивать')
-      return
-    }
-
-    const link = document.createElement('a')
-    link.href = previewUrlRef.current
-    link.download = appRef.current.overlay_type === 'text' ? 'text-render.png' : 'logo-render.png'
-    document.body.appendChild(link)
-    link.click()
-    link.remove()
-    setStatus('PNG сохранен')
   }
 
   useEffect(() => {
