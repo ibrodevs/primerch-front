@@ -4,6 +4,9 @@ const API_BASE_URL = String(import.meta.env.VITE_API_BASE_URL || '').trim().repl
 const BOOT_REQUEST_TIMEOUT_MS = 8000
 const API_REQUEST_TIMEOUT_MS = 12000
 const RENDER_REQUEST_TIMEOUT_MS = 20000
+const WARMUP_REQUEST_TIMEOUT_MS = 65000
+const SESSION_CREATE_TIMEOUT_MS = 90000
+const BACKEND_READY_TTL_MS = 120000
 const TEMPLATE_UPLOAD_MAX_EDGE = 2200
 const LOGO_UPLOAD_MAX_EDGE = 1400
 
@@ -575,6 +578,12 @@ function isTimedOutRequest(error) {
   return Boolean(error?.requestTimedOut)
 }
 
+function waitForMs(delayMs) {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, delayMs)
+  })
+}
+
 function fileExtensionForMimeType(mimeType) {
   if (mimeType === 'image/jpeg') return 'jpg'
   if (mimeType === 'image/webp') return 'webp'
@@ -714,6 +723,10 @@ function statePath(sessionId) {
 
 function sessionCreatePath() {
   return apiRootPath('/api/session')
+}
+
+function healthPath() {
+  return apiRootPath('/health')
 }
 
 function garmentImagePath(sessionId, version) {
@@ -875,6 +888,8 @@ function App() {
   const lastRequestedRenderRef = useRef(null)
   const canvasRef = useRef(null)
   const dragRef = useRef({ active: false, dx: 0, dy: 0 })
+  const backendWarmupPromiseRef = useRef(null)
+  const backendReadyAtRef = useRef(0)
   const modeOptions = buildModeOptions(app.supported_render_modes)
   const modeControlGroup = controlsForMode(app.mode)
 
@@ -889,6 +904,46 @@ function App() {
 
   function refreshBaseImage() {
     setBaseImageVersion(Date.now())
+  }
+
+  function markBackendReady() {
+    backendReadyAtRef.current = Date.now()
+    setBackendUnavailable(false)
+  }
+
+  async function ensureBackendReady({ silent = false, force = false, statusText = 'Запускаем backend...' } = {}) {
+    const readyAt = backendReadyAtRef.current
+    if (!force && readyAt > 0 && Date.now() - readyAt < BACKEND_READY_TTL_MS) return true
+    if (backendWarmupPromiseRef.current) return backendWarmupPromiseRef.current
+
+    if (!silent && statusText) setStatus(statusText)
+
+    const warmupPromise = (async () => {
+      let lastError = null
+
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        try {
+          const response = await fetchWithTimeout(healthPath(), {}, WARMUP_REQUEST_TIMEOUT_MS)
+          if (!response.ok) throw new Error(`${response.status}`)
+          markBackendReady()
+          return true
+        } catch (error) {
+          lastError = error
+          if (attempt < 1) await waitForMs(1200)
+        }
+      }
+
+      throw lastError || new Error('Backend warmup failed')
+    })()
+
+    backendWarmupPromiseRef.current = warmupPromise
+    try {
+      return await warmupPromise
+    } finally {
+      if (backendWarmupPromiseRef.current === warmupPromise) {
+        backendWarmupPromiseRef.current = null
+      }
+    }
   }
 
   async function fetchRenderBlob(snapshot, overrides = {}, signal = undefined) {
@@ -933,7 +988,7 @@ function App() {
           previewUrlRef.current = nextUrl
           setPreviewUrl(nextUrl)
           setPreviewState('ready')
-          setBackendUnavailable(false)
+          markBackendReady()
           setStatus('Готово')
         } catch (error) {
           if ((controller.signal.aborted || error?.name === 'AbortError') && !isTimedOutRequest(error)) {
@@ -986,6 +1041,7 @@ function App() {
         region: String(snapshot.region || 'auto'),
         fill: 0.72,
       })
+      markBackendReady()
 
       commitApp((current) =>
         setSizeReferenceFromPlacement({
@@ -1083,6 +1139,11 @@ function App() {
     setPreviewState('loading')
     setStatus('Подготавливаем изображения...')
     try {
+      await ensureBackendReady({
+        silent: false,
+        statusText: backendUnavailable ? 'Запускаем backend...' : 'Проверяем backend...',
+      })
+
       const preparedTemplate = await prepareUploadImage(templateFile, { maxEdge: TEMPLATE_UPLOAD_MAX_EDGE })
       const preparedLogo = await prepareUploadImage(logoFile, { maxEdge: LOGO_UPLOAD_MAX_EDGE })
       const form = new FormData()
@@ -1093,10 +1154,11 @@ function App() {
       const response = await fetchWithTimeout(
         sessionCreatePath(),
         { method: 'POST', body: form },
-        API_REQUEST_TIMEOUT_MS,
+        SESSION_CREATE_TIMEOUT_MS,
       )
       if (!response.ok) throw new Error(`${response.status}`)
       const result = await response.json()
+      markBackendReady()
 
       commitApp((current) =>
         applyStateData(
@@ -1159,6 +1221,7 @@ function App() {
           if (response.ok) {
             const data = await response.json()
             nextState = applyStateData({ ...DEFAULT_APP_STATE, session_id: sessionId }, data)
+            backendReadyAtRef.current = Date.now()
           } else {
             url.searchParams.delete('session')
             window.history.replaceState({}, '', url)
@@ -1169,6 +1232,7 @@ function App() {
           const response = await fetchWithTimeout(statePath(null), {}, BOOT_REQUEST_TIMEOUT_MS)
           const data = await response.json()
           nextState = applyStateData(DEFAULT_APP_STATE, data)
+          backendReadyAtRef.current = Date.now()
         }
 
         if (!mounted) return
@@ -1201,6 +1265,15 @@ function App() {
     const url = publicSessionUrl(app.session_id)
     window.history.replaceState({}, '', url)
   }, [app.session_id, booted])
+
+  useEffect(() => {
+    ensureBackendReady({ silent: true }).catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    if (!templateFile && !logoFile) return
+    ensureBackendReady({ silent: true }).catch(() => {})
+  }, [templateFile, logoFile])
 
   useEffect(() => {
     if (!booted || backendUnavailable) return
