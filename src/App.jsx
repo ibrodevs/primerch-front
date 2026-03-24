@@ -4,6 +4,8 @@ const API_BASE_URL = String(import.meta.env.VITE_API_BASE_URL || '').trim().repl
 const BOOT_REQUEST_TIMEOUT_MS = 8000
 const API_REQUEST_TIMEOUT_MS = 12000
 const RENDER_REQUEST_TIMEOUT_MS = 20000
+const TEMPLATE_UPLOAD_MAX_EDGE = 2200
+const LOGO_UPLOAD_MAX_EDGE = 1400
 
 const REGION_OPTIONS = [
   { value: 'auto', label: 'Авто' },
@@ -573,6 +575,105 @@ function isTimedOutRequest(error) {
   return Boolean(error?.requestTimedOut)
 }
 
+function fileExtensionForMimeType(mimeType) {
+  if (mimeType === 'image/jpeg') return 'jpg'
+  if (mimeType === 'image/webp') return 'webp'
+  return 'png'
+}
+
+function replaceFileExtension(filename, nextExtension) {
+  const base = String(filename || 'upload').replace(/\.[^.]+$/, '')
+  return `${base}.${nextExtension}`
+}
+
+function canvasToBlob(canvas, mimeType, quality) {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(
+      (blob) => {
+        if (!blob) {
+          reject(new Error('Не удалось подготовить изображение'))
+          return
+        }
+        resolve(blob)
+      },
+      mimeType,
+      quality,
+    )
+  })
+}
+
+async function decodeUploadImage(file) {
+  if (typeof createImageBitmap === 'function') {
+    try {
+      const bitmap = await createImageBitmap(file)
+      return {
+        width: bitmap.width,
+        height: bitmap.height,
+        draw(context, width, height) {
+          context.drawImage(bitmap, 0, 0, width, height)
+        },
+        close() {
+          bitmap.close?.()
+        },
+      }
+    } catch (_) {
+      // Fall through to <img> decoding below.
+    }
+  }
+
+  const objectUrl = URL.createObjectURL(file)
+  try {
+    const image = await new Promise((resolve, reject) => {
+      const element = new window.Image()
+      element.onload = () => resolve(element)
+      element.onerror = () => reject(new Error('Не удалось декодировать изображение'))
+      element.src = objectUrl
+    })
+    return {
+      width: image.naturalWidth || image.width,
+      height: image.naturalHeight || image.height,
+      draw(context, width, height) {
+        context.drawImage(image, 0, 0, width, height)
+      },
+      close() {},
+    }
+  } finally {
+    URL.revokeObjectURL(objectUrl)
+  }
+}
+
+async function prepareUploadImage(file, { maxEdge, mimeType = 'image/png', quality = 0.92 }) {
+  if (!file || !String(file.type || '').startsWith('image/')) return file
+
+  const source = await decodeUploadImage(file)
+  try {
+    const longest = Math.max(source.width, source.height)
+    if (!Number.isFinite(longest) || longest <= maxEdge) return file
+
+    const scale = maxEdge / longest
+    const targetWidth = Math.max(1, Math.round(source.width * scale))
+    const targetHeight = Math.max(1, Math.round(source.height * scale))
+    const canvas = document.createElement('canvas')
+    canvas.width = targetWidth
+    canvas.height = targetHeight
+
+    const context = canvas.getContext('2d', { alpha: true })
+    if (!context) return file
+
+    context.imageSmoothingEnabled = true
+    context.imageSmoothingQuality = 'high'
+    source.draw(context, targetWidth, targetHeight)
+
+    const blob = await canvasToBlob(canvas, mimeType, quality)
+    return new File([blob], replaceFileExtension(file.name, fileExtensionForMimeType(mimeType)), {
+      type: mimeType,
+      lastModified: Date.now(),
+    })
+  } finally {
+    source.close()
+  }
+}
+
 function apiRootPath(path) {
   return assetUrl(path)
 }
@@ -979,12 +1080,16 @@ function App() {
       return
     }
 
-    const form = new FormData()
-    form.append('template', templateFile)
-    form.append('logo', logoFile)
     setPreviewState('loading')
-    setStatus('Загрузка...')
+    setStatus('Подготавливаем изображения...')
     try {
+      const preparedTemplate = await prepareUploadImage(templateFile, { maxEdge: TEMPLATE_UPLOAD_MAX_EDGE })
+      const preparedLogo = await prepareUploadImage(logoFile, { maxEdge: LOGO_UPLOAD_MAX_EDGE })
+      const form = new FormData()
+      form.append('template', preparedTemplate)
+      form.append('logo', preparedLogo)
+
+      setStatus('Загрузка...')
       const response = await fetchWithTimeout(
         sessionCreatePath(),
         { method: 'POST', body: form },
