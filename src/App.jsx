@@ -20,25 +20,25 @@ const REGION_OPTIONS = [
 ]
 
 const MODE_LABELS = {
-  print: 'Print',
-  embroidery: 'Embroidery',
-  screen_print: 'Screen Print',
+  print: 'Принт',
+  embroidery: 'Вышивка',
+  screen_print: 'Шелкография',
   dtf: 'DTF',
   dtg: 'DTG',
-  heat_transfer: 'Heat Transfer',
-  sublimation: 'Sublimation',
-  flex: 'Flex',
-  flock: 'Flock',
-  puff: 'Puff',
-  high_density: 'High Density',
-  reflective: 'Reflective',
-  foil: 'Foil',
-  glitter: 'Glitter',
-  neon: 'Neon',
-  glow: 'Glow',
-  rubber_print: 'Rubber Print',
-  water_based: 'Water Based',
-  plastisol: 'Plastisol',
+  heat_transfer: 'Термотрансфер',
+  sublimation: 'Сублимация',
+  flex: 'Флекс',
+  flock: 'Флок',
+  puff: 'Пухлый принт',
+  high_density: 'Высокая плотность',
+  reflective: 'Светоотражающий',
+  foil: 'Фольга',
+  glitter: 'Глиттер',
+  neon: 'Неон',
+  glow: 'Свечение',
+  rubber_print: 'Резиновый принт',
+  water_based: 'Водная краска',
+  plastisol: 'Пластизоль',
 }
 
 const MODE_DESCRIPTIONS = {
@@ -113,30 +113,30 @@ const MODE_PRESETS = {
 }
 
 const PRINT_CONTROLS = [
-  { key: 'cylindrical_strength', label: 'Curvature', min: 0, max: 0.25, step: 0.005 },
-  { key: 'displacement_strength', label: 'Warp', min: 0, max: 6, step: 0.05 },
-  { key: 'shade_strength', label: 'Shading', min: 0, max: 1, step: 0.01 },
-  { key: 'texture_strength', label: 'Texture', min: 0, max: 0.6, step: 0.01 },
-  { key: 'absorption_blur', label: 'Absorption', min: 0, max: 1.5, step: 0.02 },
-  { key: 'edge_soften', label: 'Edge soften', min: 0, max: 1.2, step: 0.02 },
-  { key: 'ink_bleed', label: 'Ink bleed', min: 0, max: 0.45, step: 0.01 },
-  { key: 'dye_strength', label: 'Dye', min: 0, max: 1, step: 0.01 },
+  { key: 'cylindrical_strength', label: 'Кривизна', min: 0, max: 0.25, step: 0.005 },
+  { key: 'displacement_strength', label: 'Деформация', min: 0, max: 6, step: 0.05 },
+  { key: 'shade_strength', label: 'Затенение', min: 0, max: 1, step: 0.01 },
+  { key: 'texture_strength', label: 'Текстура', min: 0, max: 0.6, step: 0.01 },
+  { key: 'absorption_blur', label: 'Впитывание', min: 0, max: 1.5, step: 0.02 },
+  { key: 'edge_soften', label: 'Смягчение краев', min: 0, max: 1.2, step: 0.02 },
+  { key: 'ink_bleed', label: 'Растекание краски', min: 0, max: 0.45, step: 0.01 },
+  { key: 'dye_strength', label: 'Краситель', min: 0, max: 1, step: 0.01 },
 ]
 
 const EMBROIDERY_CONTROLS = [
-  { key: 'embroidery_depth', label: 'Depth', min: 0, max: 1, step: 0.01 },
-  { key: 'stitch_density', label: 'Stitch density', min: 0, max: 1, step: 0.01 },
-  { key: 'thread_shine', label: 'Thread shine', min: 0, max: 1, step: 0.01 },
-  { key: 'edge_raised', label: 'Raised edge', min: 0, max: 1, step: 0.01 },
-  { key: 'fabric_influence', label: 'Fabric influence', min: 0, max: 1, step: 0.01 },
-  { key: 'thread_texture_strength', label: 'Thread texture', min: 0, max: 1, step: 0.01 },
+  { key: 'embroidery_depth', label: 'Глубина', min: 0, max: 1, step: 0.01 },
+  { key: 'stitch_density', label: 'Плотность стежка', min: 0, max: 1, step: 0.01 },
+  { key: 'thread_shine', label: 'Блеск нити', min: 0, max: 1, step: 0.01 },
+  { key: 'edge_raised', label: 'Поднятый край', min: 0, max: 1, step: 0.01 },
+  { key: 'fabric_influence', label: 'Влияние ткани', min: 0, max: 1, step: 0.01 },
+  { key: 'thread_texture_strength', label: 'Текстура нити', min: 0, max: 1, step: 0.01 },
 ]
 
 const MATERIAL_CONTROLS = [
-  { key: 'intensity', label: 'Intensity', min: 0, max: 1, step: 0.01 },
-  { key: 'texture_strength', label: 'Texture transfer', min: 0, max: 1, step: 0.01 },
-  { key: 'depth', label: 'Depth', min: 0, max: 1, step: 0.01 },
-  { key: 'gloss', label: 'Gloss', min: 0, max: 1, step: 0.01 },
+  { key: 'intensity', label: 'Интенсивность', min: 0, max: 1, step: 0.01 },
+  { key: 'texture_strength', label: 'Передача текстуры', min: 0, max: 1, step: 0.01 },
+  { key: 'depth', label: 'Глубина', min: 0, max: 1, step: 0.01 },
+  { key: 'gloss', label: 'Глянец', min: 0, max: 1, step: 0.01 },
 ]
 
 const DEFAULT_APP_STATE = {
@@ -264,6 +264,10 @@ function modeLabel(mode) {
 
 function modeDescription(mode) {
   return MODE_DESCRIPTIONS[String(mode || '').toLowerCase()] || 'Параметры зависят от выбранной технологии нанесения.'
+}
+
+function regionLabel(region) {
+  return REGION_OPTIONS.find((option) => option.value === String(region || 'auto'))?.label || 'Авто'
 }
 
 function applyModePreset(app, mode) {
@@ -695,7 +699,7 @@ function apiPathForSession(sessionId, endpoint) {
 function controlsForMode(mode) {
   if (isEmbroideryMode(mode)) {
     return {
-      eyebrow: 'Embroidery',
+      eyebrow: 'Вышивка',
       title: 'Параметры вышивки',
       controls: EMBROIDERY_CONTROLS,
       source: 'embroidery_params',
@@ -703,14 +707,14 @@ function controlsForMode(mode) {
   }
   if (isPrintMode(mode)) {
     return {
-      eyebrow: 'Print realism',
-      title: 'Параметры print',
+      eyebrow: 'Реализм принта',
+      title: 'Параметры принта',
       controls: PRINT_CONTROLS,
       source: 'print_params',
     }
   }
   return {
-    eyebrow: `${modeLabel(mode)} material`,
+    eyebrow: `Материал: ${modeLabel(mode)}`,
     title: `Параметры ${modeLabel(mode)}`,
     controls: MATERIAL_CONTROLS,
     source: 'material_params',
@@ -911,7 +915,7 @@ function App() {
     setBackendUnavailable(false)
   }
 
-  async function ensureBackendReady({ silent = false, force = false, statusText = 'Запускаем backend...' } = {}) {
+  async function ensureBackendReady({ silent = false, force = false, statusText = 'Запускаем сервер...' } = {}) {
     const readyAt = backendReadyAtRef.current
     if (!force && readyAt > 0 && Date.now() - readyAt < BACKEND_READY_TTL_MS) return true
     if (backendWarmupPromiseRef.current) return backendWarmupPromiseRef.current
@@ -933,7 +937,7 @@ function App() {
         }
       }
 
-      throw lastError || new Error('Backend warmup failed')
+      throw lastError || new Error('Не удалось запустить сервер')
     })()
 
     backendWarmupPromiseRef.current = warmupPromise
@@ -996,7 +1000,7 @@ function App() {
           }
           setPreviewState('error')
           setBackendUnavailable(true)
-          setStatus(isTimedOutRequest(error) ? 'Backend отвечает слишком долго' : 'Ошибка рендера')
+          setStatus(isTimedOutRequest(error) ? 'Сервер отвечает слишком долго' : 'Ошибка рендера')
         } finally {
           if (renderAbortRef.current === controller) {
             renderAbortRef.current = null
@@ -1132,7 +1136,7 @@ function App() {
 
   async function handleUploadSession() {
     if (!templateFile || !logoFile) {
-      setStatus('Выберите template и logo')
+      setStatus('Выберите шаблон и логотип')
       return
     }
 
@@ -1141,7 +1145,7 @@ function App() {
     try {
       await ensureBackendReady({
         silent: false,
-        statusText: backendUnavailable ? 'Запускаем backend...' : 'Проверяем backend...',
+        statusText: backendUnavailable ? 'Запускаем сервер...' : 'Проверяем сервер...',
       })
 
       const preparedTemplate = await prepareUploadImage(templateFile, { maxEdge: TEMPLATE_UPLOAD_MAX_EDGE })
@@ -1179,7 +1183,7 @@ function App() {
     } catch (error) {
       setPreviewState('error')
       setBackendUnavailable(true)
-      setStatus(isTimedOutRequest(error) ? 'Backend отвечает слишком долго' : 'Ошибка загрузки')
+      setStatus(isTimedOutRequest(error) ? 'Сервер отвечает слишком долго' : 'Ошибка загрузки')
     }
   }
 
@@ -1190,14 +1194,14 @@ function App() {
       const downloadUrl = URL.createObjectURL(blob)
       const link = document.createElement('a')
       link.href = downloadUrl
-      link.download = appRef.current.overlay_type === 'text' ? 'text-render.png' : 'logo-render.png'
+      link.download = appRef.current.overlay_type === 'text' ? 'render-tekst.png' : 'render-logotip.png'
       document.body.appendChild(link)
       link.click()
       link.remove()
       window.setTimeout(() => URL.revokeObjectURL(downloadUrl), 0)
       setStatus('PNG сохранен')
     } catch (error) {
-      setStatus(isTimedOutRequest(error) ? 'Backend отвечает слишком долго' : 'Не удалось скачать PNG')
+      setStatus(isTimedOutRequest(error) ? 'Сервер отвечает слишком долго' : 'Не удалось скачать PNG')
     }
   }
 
@@ -1246,7 +1250,7 @@ function App() {
         setBooted(true)
         setBackendUnavailable(true)
         setPreviewState('error')
-        setStatus(isTimedOutRequest(error) ? 'Backend недоступен' : 'Не удалось загрузить backend')
+        setStatus(isTimedOutRequest(error) ? 'Сервер недоступен' : 'Не удалось загрузить сервер')
       }
     }
 
@@ -1338,7 +1342,7 @@ function App() {
           <div className="grid gap-5 xl:grid-cols-[1.3fr_0.7fr]">
             <div className="space-y-4">
               <div className="inline-flex items-center gap-2 rounded-full border border-white/70 bg-white/70 px-3 py-1 text-[0.72rem] font-semibold uppercase tracking-[0.22em] text-[var(--muted-strong)]">
-                Primerch Studio
+                Студия Primerch
               </div>
               <div className="max-w-3xl space-y-3">
                 <h1 className="text-3xl font-semibold tracking-[-0.04em] text-[var(--ink)] sm:text-4xl lg:text-[3.35rem]">
@@ -1348,18 +1352,18 @@ function App() {
             </div>
 
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
-              <Metric label="Сессия" value={app.session_id ? app.session_id.slice(0, 12) : 'default'} />
-              <Metric label="Overlay" value={app.overlay_type === 'text' ? 'Text' : 'Logo'} />
+              <Metric label="Сессия" value={app.session_id ? app.session_id.slice(0, 12) : 'По умолчанию'} />
+              <Metric label="Наложение" value={app.overlay_type === 'text' ? 'Текст' : 'Логотип'} />
             </div>
           </div>
         </header>
 
         <div className="grid gap-5 xl:grid-cols-[380px_minmax(0,1fr)]">
           <aside className="space-y-5">
-            <Section eyebrow="Session" title="Файлы и подключение">
+            <Section eyebrow="Сессия" title="Файлы и подключение">
               <div className="grid gap-3">
                 <label className="space-y-2">
-                  <span className="text-sm font-medium text-[var(--ink)]">Template image</span>
+                  <span className="text-sm font-medium text-[var(--ink)]">Изображение шаблона</span>
                   <input
                     className="studio-input file:mr-3 file:rounded-full file:border-0 file:bg-[var(--ink)] file:px-3 file:py-2 file:text-sm file:font-semibold file:text-white"
                     type="file"
@@ -1369,7 +1373,7 @@ function App() {
                 </label>
 
                 <label className="space-y-2">
-                  <span className="text-sm font-medium text-[var(--ink)]">Logo image</span>
+                  <span className="text-sm font-medium text-[var(--ink)]">Изображение логотипа</span>
                   <input
                     className="studio-input file:mr-3 file:rounded-full file:border-0 file:bg-[var(--ink)] file:px-3 file:py-2 file:text-sm file:font-semibold file:text-white"
                     type="file"
@@ -1384,11 +1388,11 @@ function App() {
               </div>
             </Section>
 
-            <Section eyebrow="Placement" title="Положение и режим">
+            <Section eyebrow="Размещение" title="Положение и режим">
               <div className="grid gap-4">
                 <div className="grid gap-3 sm:grid-cols-2">
                   <SelectField
-                    label="Mode"
+                    label="Режим"
                     value={app.mode}
                     options={modeOptions}
                     onChange={(value) => {
@@ -1397,7 +1401,7 @@ function App() {
                     }}
                   />
                   <SelectField
-                    label="Print zone"
+                    label="Зона печати"
                     value={app.region}
                     options={REGION_OPTIONS}
                     onChange={(value) => {
@@ -1418,7 +1422,7 @@ function App() {
 
                 <label className="flex items-center justify-between gap-3 rounded-2xl border border-[var(--line)] bg-white/70 px-4 py-3">
                   <span>
-                    <div className="text-sm font-medium text-[var(--ink)]">Lock to zone</div>
+                    <div className="text-sm font-medium text-[var(--ink)]">Привязать к зоне</div>
                     <div className="text-xs text-[var(--muted)]">Ограничивает объект активной областью печати.</div>
                   </span>
                   <input
@@ -1439,15 +1443,15 @@ function App() {
 
                 <div className="grid gap-3 sm:grid-cols-2">
                   <button className="studio-button" onClick={() => handleAutoplace()}>
-                    Place in selected zone
+                    Разместить в выбранной зоне
                   </button>
                   <button className="studio-button" onClick={handleDownload}>
-                    Download PNG
+                    Скачать PNG
                   </button>
                 </div>
 
                 <SliderField
-                  label="Scale"
+                  label="Масштаб"
                   value={app.scale}
                   min={0.2}
                   max={3}
@@ -1459,7 +1463,7 @@ function App() {
                 />
 
                 <SliderField
-                  label="Rotation"
+                  label="Поворот"
                   value={app.placement.rotation}
                   min={-180}
                   max={180}
@@ -1474,12 +1478,12 @@ function App() {
                 />
 
                 <SelectField
-                  label="Preview scale"
+                  label="Масштаб превью"
                   value={String(app.downscale)}
                   options={[
-                    { value: '1', label: '1.0x quality' },
-                    { value: '0.75', label: '0.75x faster' },
-                    { value: '0.5', label: '0.5x fastest' },
+                    { value: '1', label: '1.0x качество' },
+                    { value: '0.75', label: '0.75x быстрее' },
+                    { value: '0.5', label: '0.5x максимально быстро' },
                   ]}
                   onChange={(value) => {
                     commitApp((current) => ({ ...current, downscale: Number(value) }))
@@ -1489,12 +1493,12 @@ function App() {
               </div>
             </Section>
 
-            <Section eyebrow="Overlay" title="Текст, цвет и лого">
+            <Section eyebrow="Наложение" title="Текст, цвет и логотип">
               <div className="grid gap-4">
                 <div className="inline-flex rounded-full border border-[var(--line)] bg-[var(--chip)] p-1">
                   {[
-                    { value: 'logo', label: 'Logo' },
-                    { value: 'text', label: 'Text' },
+                    { value: 'logo', label: 'Логотип' },
+                    { value: 'text', label: 'Текст' },
                   ].map((option) => (
                     <button
                       key={option.value}
@@ -1507,7 +1511,7 @@ function App() {
                         commitApp((current) => ({
                           ...current,
                           overlay_type: option.value,
-                          text: option.value === 'text' && !current.text ? 'Studio Line' : current.text,
+                          text: option.value === 'text' && !current.text ? 'Новая коллекция' : current.text,
                         }))
                         queueRender(30)
                       }}
@@ -1518,10 +1522,10 @@ function App() {
                 </div>
 
                 <label className="space-y-2">
-                  <span className="text-sm font-medium text-[var(--ink)]">Overlay text</span>
+                  <span className="text-sm font-medium text-[var(--ink)]">Текст наложения</span>
                   <textarea
                     className="studio-input min-h-28 resize-none"
-                    placeholder="Например: SUMMER DROP"
+                    placeholder="Например: ЛЕТНЯЯ КОЛЛЕКЦИЯ"
                     value={app.text}
                     onChange={(event) => {
                       commitApp((current) => ({
@@ -1536,7 +1540,7 @@ function App() {
 
                 <div className="grid gap-3 sm:grid-cols-2">
                   <label className="space-y-2">
-                    <span className="text-sm font-medium text-[var(--ink)]">Text color</span>
+                    <span className="text-sm font-medium text-[var(--ink)]">Цвет текста</span>
                     <input
                       className="studio-color"
                       type="color"
@@ -1549,7 +1553,7 @@ function App() {
                   </label>
 
                   <label className="space-y-2">
-                    <span className="text-sm font-medium text-[var(--ink)]">Logo color</span>
+                    <span className="text-sm font-medium text-[var(--ink)]">Цвет логотипа</span>
                     <input
                       className="studio-color"
                       type="color"
@@ -1569,8 +1573,8 @@ function App() {
 
                 <label className="flex items-center justify-between gap-3 rounded-2xl border border-[var(--line)] bg-white/70 px-4 py-3">
                   <span>
-                    <div className="text-sm font-medium text-[var(--ink)]">Recolor logo</div>
-                    <div className="text-xs text-[var(--muted)]">Активирует tint для logo render.</div>
+                    <div className="text-sm font-medium text-[var(--ink)]">Перекрасить логотип</div>
+                    <div className="text-xs text-[var(--muted)]">Включает тонирование логотипа на рендере.</div>
                   </span>
                   <input
                     className="h-5 w-5 accent-[var(--accent)]"
@@ -1619,18 +1623,18 @@ function App() {
               <div className="mb-4 flex flex-col gap-3 border-b border-[var(--line)] pb-4 lg:flex-row lg:items-end lg:justify-between">
                 <div>
                   <div className="text-[0.68rem] font-semibold uppercase tracking-[0.28em] text-[var(--muted-strong)]">
-                    Live Preview
+                    Живое превью
                   </div>
                   <h2 className="mt-1 text-2xl font-semibold tracking-[-0.04em] text-[var(--ink)]">
-                    Canvas для drag, scale и render цикла
+                    Холст для перетаскивания, масштаба и рендера
                   </h2>
                 </div>
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
                   <Metric label="X" value={app.placement.x} />
                   <Metric label="Y" value={app.placement.y} />
-                  <Metric label="W" value={app.placement.width} />
-                  <Metric label="H" value={app.placement.height} />
-                  <Metric label="Rotate" value={`${Math.round(app.placement.rotation)}deg`} />
+                  <Metric label="Ширина" value={app.placement.width} />
+                  <Metric label="Высота" value={app.placement.height} />
+                  <Metric label="Поворот" value={`${Math.round(app.placement.rotation)}°`} />
                 </div>
               </div>
 
@@ -1649,14 +1653,14 @@ function App() {
                     <img
                       className="absolute inset-0 h-full w-full object-contain"
                       src={baseImageSrc}
-                      alt="Garment"
+                      alt="Изделие"
                       draggable="false"
                     />
                     {previewUrl ? (
                       <img
                         className="absolute inset-0 h-full w-full object-contain"
                         src={previewUrl}
-                        alt="Render preview"
+                        alt="Превью рендера"
                         draggable="false"
                       />
                     ) : null}
@@ -1683,7 +1687,7 @@ function App() {
                     />
 
                     <div className="pointer-events-none absolute bottom-4 left-4 rounded-full border border-white/80 bg-white/80 px-3 py-2 text-xs font-semibold tracking-[0.14em] text-[var(--muted-strong)] backdrop-blur">
-                      Drag to move. Alt + scroll to scale.
+                      Перетаскивайте для перемещения. `Alt` + колесо для масштаба.
                     </div>
                   </div>
 
@@ -1694,10 +1698,10 @@ function App() {
                     </div>
                     <div className="rounded-3xl border border-[var(--line)] bg-white/75 p-4">
                       <div className="text-xs uppercase tracking-[0.22em] text-[var(--muted)]">Зона</div>
-                      <div className="mt-2 text-lg font-semibold text-[var(--ink)]">{app.region}</div>
+                      <div className="mt-2 text-lg font-semibold text-[var(--ink)]">{regionLabel(app.region)}</div>
                     </div>
                     <div className="rounded-3xl border border-[var(--line)] bg-white/75 p-4">
-                      <div className="text-xs uppercase tracking-[0.22em] text-[var(--muted)]">Preview scale</div>
+                      <div className="text-xs uppercase tracking-[0.22em] text-[var(--muted)]">Масштаб превью</div>
                       <div className="mt-2 text-lg font-semibold text-[var(--ink)]">{app.downscale}x</div>
                     </div>
                   </div>
@@ -1705,17 +1709,17 @@ function App() {
 
                 <div className="space-y-4">
                   <div className="rounded-[28px] border border-[var(--line)] bg-[linear-gradient(180deg,rgba(17,24,39,0.96),rgba(31,41,55,0.96))] p-5 text-white shadow-[0_28px_70px_rgba(15,23,42,0.18)]">
-                    <div className="text-[0.68rem] uppercase tracking-[0.28em] text-white/60">Workflow</div>
+                    <div className="text-[0.68rem] uppercase tracking-[0.28em] text-white/60">Сценарий работы</div>
                     <div className="mt-3 space-y-3 text-sm text-white/78">
-                      <p>1. Загрузи template и logo для нового товара.</p>
-                      <p>2. Выбери зону и режим, потом жми autoplace или двигай вручную.</p>
-                      <p>3. Для выбранного режима настрой material, print или embroidery параметры и скачай PNG.</p>
+                      <p>1. Загрузите шаблон и логотип для нового товара.</p>
+                      <p>2. Выберите зону и режим, затем нажмите авторазмещение или двигайте вручную.</p>
+                      <p>3. Для выбранного режима настройте параметры материала, принта или вышивки и скачайте PNG.</p>
                     </div>
                   </div>
 
                   <div className="rounded-[28px] border border-[var(--line)] bg-white/75 p-5">
                     <div className="text-[0.68rem] uppercase tracking-[0.28em] text-[var(--muted-strong)]">
-                      Active Mode
+                      Активный режим
                     </div>
                     <div className="mt-3 text-lg font-semibold text-[var(--ink)]">{modeLabel(app.mode)}</div>
                     <p className="mt-2 text-sm leading-6 text-[var(--muted)]">{modeDescription(app.mode)}</p>
@@ -1723,13 +1727,13 @@ function App() {
 
                   <div className="rounded-[28px] border border-[var(--line)] bg-white/75 p-5">
                     <div className="text-[0.68rem] uppercase tracking-[0.28em] text-[var(--muted-strong)]">
-                      Render bounds
+                      Границы рендера
                     </div>
                     <div className="mt-4 grid grid-cols-2 gap-3">
-                      <Metric label="Bound X" value={bounds.x} />
-                      <Metric label="Bound Y" value={bounds.y} />
-                      <Metric label="Bound W" value={bounds.w} />
-                      <Metric label="Bound H" value={bounds.h} />
+                      <Metric label="Граница X" value={bounds.x} />
+                      <Metric label="Граница Y" value={bounds.y} />
+                      <Metric label="Ширина зоны" value={bounds.w} />
+                      <Metric label="Высота зоны" value={bounds.h} />
                     </div>
                   </div>
                 </div>
