@@ -1,6 +1,10 @@
 {
   "rewrites": [
     {
+      "source": "/catalog-image",
+      "destination": "/api/catalog-image"
+    },
+    {
       "source": "/api/:path*",
       "destination": "https://backendprimerch.pythonanywhere.com/api/:path*"
     },

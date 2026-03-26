@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import baseCatalog from './base.json'
 
 const API_BASE_URL = String(import.meta.env.VITE_API_BASE_URL || '').trim().replace(/\/+$/, '')
 const BOOT_REQUEST_TIMEOUT_MS = 8000
@@ -209,6 +210,62 @@ const PREVIEW_STATE_META = {
   },
 }
 
+const GIFTS_HOSTNAME = 'files.gifts.ru'
+const CATALOG_IMAGE_PROXY_PATH = '/catalog-image'
+const CATALOG_PRODUCT_PRIORITY = [
+  'Футболка T-bolka 140',
+  'Худи Kirenga 2.0',
+  'Свитшот Toima 2.0',
+  'Толстовка на молнии с капюшоном Siverga 2.0',
+  'Рубашка поло мужская Virma Light',
+  'Фартук Neat',
+  'Панама Challenge',
+  'Бандана Overhead',
+]
+
+const catalogProductsByName = new Map(
+  baseCatalog.map((item, index) => [String(item?.product_name || `catalog-product-${index}`), { item, index }]),
+)
+
+const CATALOG_PRODUCTS = CATALOG_PRODUCT_PRIORITY.map((name) => catalogProductsByName.get(name))
+  .filter(Boolean)
+  .map((item, index) => {
+    const product = item.item
+    const photos = Array.isArray(product?.photos)
+      ? product.photos.filter((photo) => {
+          try {
+            return new URL(String(photo || '')).hostname === GIFTS_HOSTNAME
+          } catch {
+            return false
+          }
+        })
+      : []
+
+    if (!photos.length) return null
+
+    const variants = Array.isArray(product?.variants)
+      ? product.variants.filter((variant) => {
+          const article = String(variant?.article || '').trim()
+          const price = String(variant?.price || '').trim()
+          return article && price && price !== '1' && !price.endsWith('.')
+        })
+      : []
+
+    return {
+      id: String(product?.product_url || `catalog-product-${index}`),
+      name: String(product?.product_name || 'Товар'),
+      url: String(product?.product_url || ''),
+      description: String(product?.description || '').trim(),
+      article: String(variants[0]?.article || product?.article || '').trim(),
+      price: String(variants[0]?.price || '').replace(/[^\d.,]/g, '').replace(/,$/, ''),
+      photos,
+      variants,
+    }
+  })
+  .filter(Boolean)
+
+const DEFAULT_PRODUCT_ID = CATALOG_PRODUCTS[0]?.id || ''
+
 function num(value, fallback = 0) {
   const parsed = Number(value)
   return Number.isFinite(parsed) ? parsed : fallback
@@ -216,6 +273,52 @@ function num(value, fallback = 0) {
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value))
+}
+
+function shortText(value, maxLength = 160) {
+  const text = String(value || '').replace(/\s+/g, ' ').trim()
+  if (!text) return ''
+  if (text.length <= maxLength) return text
+  return `${text.slice(0, Math.max(0, maxLength - 1)).trimEnd()}…`
+}
+
+function formatPrice(value) {
+  const numeric = Number.parseFloat(String(value || '').replace(',', '.'))
+  if (!Number.isFinite(numeric) || numeric <= 0) return 'Цена по запросу'
+  return `от ${Math.round(numeric)} ₽`
+}
+
+function catalogImageProxyUrl(url) {
+  if (!url) return ''
+  return `${CATALOG_IMAGE_PROXY_PATH}?url=${encodeURIComponent(url)}`
+}
+
+function remoteImageFetchCandidates(url) {
+  const source = String(url || '').trim()
+  if (!source) return []
+
+  const candidates = []
+
+  try {
+    if (new URL(source).hostname === GIFTS_HOSTNAME) {
+      candidates.push(catalogImageProxyUrl(source))
+    }
+  } catch {
+    return []
+  }
+
+  candidates.push(source)
+  return [...new Set(candidates)]
+}
+
+function fileNameFromUrl(url, fallback = 'catalog-template') {
+  try {
+    const pathname = new URL(String(url || '')).pathname
+    const raw = pathname.split('/').pop() || fallback
+    return raw.includes('.') ? raw : `${raw}.png`
+  } catch {
+    return `${fallback}.png`
+  }
 }
 
 function normalizeHexColor(value, fallback = '#111111') {
@@ -687,6 +790,29 @@ async function prepareUploadImage(file, { maxEdge, mimeType = 'image/png', quali
   }
 }
 
+async function fetchRemoteImageAsFile(url, fallbackName = 'catalog-template') {
+  let lastError = null
+
+  for (const candidate of remoteImageFetchCandidates(url)) {
+    try {
+      const response = await fetchWithTimeout(candidate, {}, API_REQUEST_TIMEOUT_MS)
+      if (!response.ok) throw new Error(`${response.status}`)
+
+      const blob = await response.blob()
+      if (!blob.size) throw new Error('Пустой ответ изображения')
+
+      return new File([blob], fileNameFromUrl(url, fallbackName), {
+        type: blob.type || 'image/png',
+        lastModified: Date.now(),
+      })
+    } catch (error) {
+      lastError = error
+    }
+  }
+
+  throw lastError || new Error('Не удалось загрузить изображение товара')
+}
+
 function apiRootPath(path) {
   return assetUrl(path)
 }
@@ -876,6 +1002,8 @@ function App() {
   const [status, setStatus] = useState('Загрузка...')
   const [previewState, setPreviewState] = useState('loading')
   const [previewUrl, setPreviewUrl] = useState('')
+  const [selectedProductId, setSelectedProductId] = useState(DEFAULT_PRODUCT_ID)
+  const [selectedProductPhotoIndex, setSelectedProductPhotoIndex] = useState(0)
   const [templateFile, setTemplateFile] = useState(null)
   const [logoFile, setLogoFile] = useState(null)
   const [booted, setBooted] = useState(false)
@@ -896,6 +1024,16 @@ function App() {
   const backendReadyAtRef = useRef(0)
   const modeOptions = buildModeOptions(app.supported_render_modes)
   const modeControlGroup = controlsForMode(app.mode)
+  const selectedProduct = CATALOG_PRODUCTS.find((product) => product.id === selectedProductId) || CATALOG_PRODUCTS[0] || null
+  const selectedProductPhotos = selectedProduct?.photos || []
+  const selectedProductPhoto =
+    selectedProductPhotos[selectedProductPhotoIndex] || selectedProductPhotos[0] || ''
+  const selectedProductPhotoPreviewUrl = catalogImageProxyUrl(selectedProductPhoto)
+  const templateSourceLabel = templateFile
+    ? templateFile.name
+    : selectedProduct
+      ? `${selectedProduct.name} · фото ${Math.min(selectedProductPhotoIndex + 1, selectedProductPhotos.length)}`
+      : 'Не выбран'
 
   function commitApp(nextOrUpdater) {
     const next =
@@ -1135,8 +1273,13 @@ function App() {
   }
 
   async function handleUploadSession() {
-    if (!templateFile || !logoFile) {
-      setStatus('Выберите шаблон и логотип')
+    if (!logoFile) {
+      setStatus('Выберите логотип')
+      return
+    }
+
+    if (!templateFile && !selectedProductPhoto) {
+      setStatus('Загрузите шаблон или выберите товар')
       return
     }
 
@@ -1148,7 +1291,10 @@ function App() {
         statusText: backendUnavailable ? 'Запускаем сервер...' : 'Проверяем сервер...',
       })
 
-      const preparedTemplate = await prepareUploadImage(templateFile, { maxEdge: TEMPLATE_UPLOAD_MAX_EDGE })
+      const templateSource = templateFile
+        ? templateFile
+        : await fetchRemoteImageAsFile(selectedProductPhoto, selectedProduct?.article || 'gifts-product')
+      const preparedTemplate = await prepareUploadImage(templateSource, { maxEdge: TEMPLATE_UPLOAD_MAX_EDGE })
       const preparedLogo = await prepareUploadImage(logoFile, { maxEdge: LOGO_UPLOAD_MAX_EDGE })
       const form = new FormData()
       form.append('template', preparedTemplate)
@@ -1362,6 +1508,77 @@ function App() {
           <aside className="space-y-5">
             <Section eyebrow="Сессия" title="Файлы и подключение">
               <div className="grid gap-3">
+                {selectedProduct ? (
+                  <div className="rounded-2xl border border-[var(--line)] bg-white/70 p-4">
+                    <div className="text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-[var(--muted-strong)]">
+                      Каталог gifts.ru
+                    </div>
+                    <div className="mt-3 grid gap-3">
+                      <SelectField
+                        label="Разные товары для теста"
+                        value={selectedProduct.id}
+                        options={CATALOG_PRODUCTS.map((product) => ({
+                          value: product.id,
+                          label: product.name,
+                        }))}
+                        onChange={(value) => {
+                          setSelectedProductId(value)
+                          setSelectedProductPhotoIndex(0)
+                        }}
+                      />
+
+                      <img
+                        className="h-48 w-full rounded-2xl border border-[var(--line)] bg-white object-contain"
+                        src={selectedProductPhotoPreviewUrl}
+                        alt={selectedProduct.name}
+                        loading="lazy"
+                      />
+
+                      <div className="grid grid-cols-4 gap-2">
+                        {selectedProductPhotos.slice(0, 4).map((photo, index) => (
+                          <button
+                            key={`${selectedProduct.id}-${photo}`}
+                            type="button"
+                            className={`overflow-hidden rounded-2xl border transition ${
+                              index === selectedProductPhotoIndex
+                                ? 'border-[var(--accent)] shadow-[0_12px_28px_rgba(32,69,246,0.18)]'
+                                : 'border-[var(--line)] bg-white/70'
+                            }`}
+                            onClick={() => setSelectedProductPhotoIndex(index)}
+                          >
+                            <img
+                              className="h-18 w-full bg-white object-cover"
+                              src={catalogImageProxyUrl(photo)}
+                              alt={`${selectedProduct.name} ${index + 1}`}
+                              loading="lazy"
+                            />
+                          </button>
+                        ))}
+                      </div>
+
+                      <div className="rounded-2xl border border-[var(--line)] bg-[var(--chip)] px-4 py-3">
+                        <div className="text-sm font-semibold text-[var(--ink)]">{selectedProduct.name}</div>
+                        <div className="mt-1 text-xs text-[var(--muted)]">
+                          {formatPrice(selectedProduct.price)} · {selectedProduct.variants.length} вариантов
+                        </div>
+                        <p className="mt-2 text-xs leading-5 text-[var(--muted)]">
+                          {shortText(selectedProduct.description, 180)}
+                        </p>
+                        {selectedProduct.url ? (
+                          <a
+                            className="mt-3 inline-flex text-xs font-semibold text-[var(--accent)] underline-offset-4 hover:underline"
+                            href={selectedProduct.url}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            Открыть товар на gifts.ru
+                          </a>
+                        ) : null}
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
+
                 <label className="space-y-2">
                   <span className="text-sm font-medium text-[var(--ink)]">Изображение шаблона</span>
                   <input
@@ -1381,6 +1598,14 @@ function App() {
                     onChange={(event) => setLogoFile(event.target.files?.[0] || null)}
                   />
                 </label>
+
+                <div className="rounded-2xl border border-[var(--line)] bg-white/70 px-4 py-3">
+                  <div className="text-sm font-medium text-[var(--ink)]">Источник шаблона</div>
+                  <div className="mt-1 text-sm text-[var(--muted-strong)]">{templateSourceLabel}</div>
+                  <div className="mt-1 text-xs leading-5 text-[var(--muted)]">
+                    Если файл шаблона не загружен, в backend отправится выбранное фото товара из каталога.
+                  </div>
+                </div>
 
                 <button className="studio-button studio-button-primary" onClick={handleUploadSession}>
                   Создать сессию

@@ -3,6 +3,8 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import https from 'node:https'
 
+const CATALOG_IMAGE_PROXY_PATH = '/catalog-image'
+
 function imageProxyMiddleware() {
   const handler = async (req, res) => {
     try {
@@ -97,10 +99,10 @@ function imageProxyMiddleware() {
   return {
     name: 'image-proxy',
     configureServer(server) {
-      server.middlewares.use('/__imgproxy', handler)
+      server.middlewares.use(CATALOG_IMAGE_PROXY_PATH, handler)
     },
     configurePreviewServer(server) {
-      server.middlewares.use('/__imgproxy', handler)
+      server.middlewares.use(CATALOG_IMAGE_PROXY_PATH, handler)
     },
   }
 }
