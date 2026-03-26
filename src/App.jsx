@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useEffectEvent, useRef, useState } from 'react'
 import baseCatalog from './base.json'
 
 const API_BASE_URL = String(import.meta.env.VITE_API_BASE_URL || '').trim().replace(/\/+$/, '')
@@ -321,6 +321,11 @@ function fileNameFromUrl(url, fallback = 'catalog-template') {
   }
 }
 
+function fileSignature(file, fallbackLabel) {
+  if (!file) return `${fallbackLabel}:none`
+  return `${fallbackLabel}:${file.name}:${file.size}:${file.lastModified}`
+}
+
 function normalizeHexColor(value, fallback = '#111111') {
   if (typeof value !== 'string') return fallback
   let text = value.trim().toLowerCase()
@@ -436,11 +441,14 @@ function regionBoundsFromPrintBounds(printBounds, region) {
   return factory ? factory() : printBounds
 }
 
-function getActiveBounds(app) {
+function getSelectedBounds(app) {
   const printBounds = getPrintBounds(app)
-  if (!app.lock_region) return printBounds
   if (String(app.region || 'auto') === 'auto') return printBounds
-  return getStoredRegionBounds(app, app.region) || regionBoundsFromPrintBounds(printBounds, app.region)
+  return getStoredRegionBounds(app, app.region) || printBounds
+}
+
+function getActiveBounds(app) {
+  return getSelectedBounds(app)
 }
 
 function normalizeAppState(input) {
@@ -732,7 +740,7 @@ async function decodeUploadImage(file) {
           bitmap.close?.()
         },
       }
-    } catch (_) {
+    } catch {
       // Fall through to <img> decoding below.
     }
   }
@@ -937,6 +945,17 @@ function computeCanvasViewport(canvas, garment) {
   }
 }
 
+function uploadSourceKey({ templateFile, logoFile, selectedProduct, selectedProductPhoto, selectedProductPhotoIndex }) {
+  if (!logoFile) return ''
+
+  const templateKey = templateFile ? fileSignature(templateFile, 'template') : ''
+  const productKey = templateKey
+    ? templateKey
+    : `catalog:${selectedProduct?.id || 'none'}:${selectedProductPhotoIndex}:${selectedProductPhoto || 'none'}`
+
+  return `${productKey}|${fileSignature(logoFile, 'logo')}`
+}
+
 function Section({ title, eyebrow, children }) {
   return (
     <section className="surface-panel space-y-4 p-5">
@@ -1022,6 +1041,8 @@ function App() {
   const dragRef = useRef({ active: false, dx: 0, dy: 0 })
   const backendWarmupPromiseRef = useRef(null)
   const backendReadyAtRef = useRef(0)
+  const uploadInFlightRef = useRef(false)
+  const lastAnalyzedSourceRef = useRef('')
   const modeOptions = buildModeOptions(app.supported_render_modes)
   const modeControlGroup = controlsForMode(app.mode)
   const selectedProduct = CATALOG_PRODUCTS.find((product) => product.id === selectedProductId) || CATALOG_PRODUCTS[0] || null
@@ -1029,6 +1050,13 @@ function App() {
   const selectedProductPhoto =
     selectedProductPhotos[selectedProductPhotoIndex] || selectedProductPhotos[0] || ''
   const selectedProductPhotoPreviewUrl = catalogImageProxyUrl(selectedProductPhoto)
+  const currentUploadSourceKey = uploadSourceKey({
+    templateFile,
+    logoFile,
+    selectedProduct,
+    selectedProductPhoto,
+    selectedProductPhotoIndex,
+  })
   const templateSourceLabel = templateFile
     ? templateFile.name
     : selectedProduct
@@ -1181,7 +1209,7 @@ function App() {
     try {
       const result = await apiJson(apiPath(snapshot, 'autoplace'), {
         region: String(snapshot.region || 'auto'),
-        fill: 0.72,
+        fill: 0.92,
       })
       markBackendReady()
 
@@ -1272,7 +1300,9 @@ function App() {
     queueRender(60)
   }
 
-  async function handleUploadSession() {
+  async function handleUploadSession({ reason = 'manual', sourceKey = currentUploadSourceKey } = {}) {
+    if (uploadInFlightRef.current) return
+
     if (!logoFile) {
       setStatus('Выберите логотип')
       return
@@ -1284,7 +1314,8 @@ function App() {
     }
 
     setPreviewState('loading')
-    setStatus('Подготавливаем изображения...')
+    setStatus(reason === 'source-change' ? 'Анализируем товар...' : 'Подготавливаем изображения...')
+    uploadInFlightRef.current = true
     try {
       await ensureBackendReady({
         silent: false,
@@ -1309,6 +1340,7 @@ function App() {
       if (!response.ok) throw new Error(`${response.status}`)
       const result = await response.json()
       markBackendReady()
+      lastAnalyzedSourceRef.current = sourceKey
 
       commitApp((current) =>
         applyStateData(
@@ -1330,8 +1362,14 @@ function App() {
       setPreviewState('error')
       setBackendUnavailable(true)
       setStatus(isTimedOutRequest(error) ? 'Сервер отвечает слишком долго' : 'Ошибка загрузки')
+    } finally {
+      uploadInFlightRef.current = false
     }
   }
+
+  const syncSelectedSource = useEffectEvent((sourceKey) => {
+    handleUploadSession({ reason: 'source-change', sourceKey })
+  })
 
   async function handleDownload() {
     setStatus('Готовим PNG...')
@@ -1426,6 +1464,13 @@ function App() {
   }, [templateFile, logoFile])
 
   useEffect(() => {
+    if (!booted || !currentUploadSourceKey) return
+    if (lastAnalyzedSourceRef.current === currentUploadSourceKey) return
+
+    syncSelectedSource(currentUploadSourceKey)
+  }, [booted, currentUploadSourceKey])
+
+  useEffect(() => {
     if (!booted || backendUnavailable) return
     renderPreview()
   }, [backendUnavailable, booted])
@@ -1454,6 +1499,7 @@ function App() {
   }, [app.garment.w, app.garment.h])
 
   const bounds = getActiveBounds(app)
+  const selectedBounds = getSelectedBounds(app)
   const viewport = canvasViewport || {
     left: 0,
     top: 0,
@@ -1470,11 +1516,11 @@ function App() {
     transform: `rotate(${app.placement.rotation}deg)`,
   }
   const regionStyle = {
-    display: app.lock_region && app.region !== 'auto' ? 'block' : 'none',
-    left: `${viewport.left + bounds.x * scaleX}px`,
-    top: `${viewport.top + bounds.y * scaleY}px`,
-    width: `${bounds.w * scaleX}px`,
-    height: `${bounds.h * scaleY}px`,
+    display: app.region !== 'auto' ? 'block' : 'none',
+    left: `${viewport.left + selectedBounds.x * scaleX}px`,
+    top: `${viewport.top + selectedBounds.y * scaleY}px`,
+    width: `${selectedBounds.w * scaleX}px`,
+    height: `${selectedBounds.h * scaleY}px`,
   }
 
   const baseImageSrc = garmentImagePath(app.session_id, baseImageVersion)
@@ -1630,8 +1676,12 @@ function App() {
                     value={app.region}
                     options={REGION_OPTIONS}
                     onChange={(value) => {
-                      commitApp((current) => ({ ...current, region: value || 'auto' }))
-                      if (appRef.current.lock_region && value !== 'auto') {
+                      commitApp((current) => ({
+                        ...current,
+                        region: value || 'auto',
+                        lock_region: (value || 'auto') !== 'auto',
+                      }))
+                      if (value !== 'auto') {
                         handleAutoplace({ silent: true })
                       } else {
                         queueRender(80)
@@ -1656,10 +1706,20 @@ function App() {
                     checked={app.lock_region}
                     onChange={(event) => {
                       const checked = event.target.checked
-                      commitApp((current) => ({ ...current, lock_region: checked }))
-                      if (checked && appRef.current.region !== 'auto') {
+                      if (checked) {
+                        const nextRegion = appRef.current.region !== 'auto' ? appRef.current.region : 'chest'
+                        commitApp((current) => ({
+                          ...current,
+                          lock_region: true,
+                          region: nextRegion,
+                        }))
                         handleAutoplace({ silent: true })
                       } else {
+                        commitApp((current) => ({
+                          ...current,
+                          lock_region: false,
+                          region: 'auto',
+                        }))
                         queueRender(80)
                       }
                     }}

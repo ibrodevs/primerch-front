@@ -1,3 +1,5 @@
+import { Buffer } from 'node:buffer'
+
 const ALLOWED_HOSTS = new Set(['files.gifts.ru'])
 
 function readUrlParam(req) {
