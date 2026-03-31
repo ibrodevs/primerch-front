@@ -390,18 +390,6 @@ function applyModePreset(app, mode) {
   })
 }
 
-function rectFromBounds(bounds, xa, ya, xb, yb) {
-  const x1 = num(bounds?.x, 0)
-  const y1 = num(bounds?.y, 0)
-  const w = Math.max(1, num(bounds?.w, 1))
-  const h = Math.max(1, num(bounds?.h, 1))
-  const rx1 = Math.round(x1 + w * xa)
-  const ry1 = Math.round(y1 + h * ya)
-  const rx2 = Math.round(x1 + w * xb)
-  const ry2 = Math.round(y1 + h * yb)
-  return { x: rx1, y: ry1, w: Math.max(1, rx2 - rx1), h: Math.max(1, ry2 - ry1) }
-}
-
 function getPrintBounds(app) {
   const bounds = app.print_bounds || {}
   return {
@@ -427,18 +415,6 @@ function getStoredRegionBounds(app, region) {
     w: clamp(Math.round(num(raw.w, printBounds.w)), 1, maxW),
     h: clamp(Math.round(num(raw.h, printBounds.h)), 1, maxH),
   }
-}
-
-function regionBoundsFromPrintBounds(printBounds, region) {
-  const rects = {
-    chest: () => rectFromBounds(printBounds, 0.3, 0.22, 0.7, 0.42),
-    abdomen: () => rectFromBounds(printBounds, 0.3, 0.48, 0.7, 0.72),
-    back: () => rectFromBounds(printBounds, 0.26, 0.2, 0.74, 0.58),
-    left_sleeve: () => rectFromBounds(printBounds, 0.06, 0.18, 0.32, 0.38),
-    right_sleeve: () => rectFromBounds(printBounds, 0.68, 0.18, 0.94, 0.38),
-  }
-  const factory = rects[String(region || 'auto')]
-  return factory ? factory() : printBounds
 }
 
 function getSelectedBounds(app) {
@@ -946,14 +922,15 @@ function computeCanvasViewport(canvas, garment) {
 }
 
 function uploadSourceKey({ templateFile, logoFile, selectedProduct, selectedProductPhoto, selectedProductPhotoIndex }) {
-  if (!logoFile) return ''
-
   const templateKey = templateFile ? fileSignature(templateFile, 'template') : ''
   const productKey = templateKey
     ? templateKey
-    : `catalog:${selectedProduct?.id || 'none'}:${selectedProductPhotoIndex}:${selectedProductPhoto || 'none'}`
+    : selectedProductPhoto
+      ? `catalog:${selectedProduct?.id || 'none'}:${selectedProductPhotoIndex}:${selectedProductPhoto}`
+      : ''
 
-  return `${productKey}|${fileSignature(logoFile, 'logo')}`
+  if (!productKey) return ''
+  return logoFile ? `${productKey}|${fileSignature(logoFile, 'logo')}` : productKey
 }
 
 function Section({ title, eyebrow, children }) {
@@ -1303,11 +1280,6 @@ function App() {
   async function handleUploadSession({ reason = 'manual', sourceKey = currentUploadSourceKey } = {}) {
     if (uploadInFlightRef.current) return
 
-    if (!logoFile) {
-      setStatus('Выберите логотип')
-      return
-    }
-
     if (!templateFile && !selectedProductPhoto) {
       setStatus('Загрузите шаблон или выберите товар')
       return
@@ -1326,10 +1298,12 @@ function App() {
         ? templateFile
         : await fetchRemoteImageAsFile(selectedProductPhoto, selectedProduct?.article || 'gifts-product')
       const preparedTemplate = await prepareUploadImage(templateSource, { maxEdge: TEMPLATE_UPLOAD_MAX_EDGE })
-      const preparedLogo = await prepareUploadImage(logoFile, { maxEdge: LOGO_UPLOAD_MAX_EDGE })
       const form = new FormData()
       form.append('template', preparedTemplate)
-      form.append('logo', preparedLogo)
+      if (logoFile) {
+        const preparedLogo = await prepareUploadImage(logoFile, { maxEdge: LOGO_UPLOAD_MAX_EDGE })
+        form.append('logo', preparedLogo)
+      }
 
       setStatus('Загрузка...')
       const response = await fetchWithTimeout(
@@ -1649,13 +1623,10 @@ function App() {
                   <div className="text-sm font-medium text-[var(--ink)]">Источник шаблона</div>
                   <div className="mt-1 text-sm text-[var(--muted-strong)]">{templateSourceLabel}</div>
                   <div className="mt-1 text-xs leading-5 text-[var(--muted)]">
-                    Если файл шаблона не загружен, в backend отправится выбранное фото товара из каталога.
+                    Товар или шаблон отправляются автоматически. Если логотип не загружен, backend использует логотип по
+                    умолчанию.
                   </div>
                 </div>
-
-                <button className="studio-button studio-button-primary" onClick={handleUploadSession}>
-                  Создать сессию
-                </button>
               </div>
             </Section>
 
