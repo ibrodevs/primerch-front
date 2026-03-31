@@ -71,8 +71,8 @@ const MODE_PRESETS = {
     print_params: {
       opacity: 0.85,
       blend_mode: 'normal',
-      displacement_strength: 2.75,
-      cylindrical_strength: 0.11,
+      displacement_strength: 1.75,
+      cylindrical_strength: 0.02,
       ink_strength: 0.85,
       absorption_blur: 0.55,
       absorption_alpha_soften: 0.965,
@@ -161,8 +161,8 @@ const DEFAULT_APP_STATE = {
   print_params: {
     opacity: 0.85,
     blend_mode: 'normal',
-    displacement_strength: 2.75,
-    cylindrical_strength: 0.11,
+    displacement_strength: 1.75,
+    cylindrical_strength: 0.02,
     ink_strength: 0.85,
     absorption_blur: 0.55,
     absorption_alpha_soften: 0.965,
@@ -536,7 +536,7 @@ function applyStateData(current, data) {
   if (Number.isFinite(num(data.opacity, Number.NaN))) next.print_params.opacity = num(data.opacity, next.print_params.opacity)
   if (data.blend_mode) next.print_params.blend_mode = String(data.blend_mode)
   if (Number.isFinite(num(data.distortion, Number.NaN))) {
-    next.print_params.displacement_strength = num(data.distortion, 0.6) / 0.18
+    next.print_params.displacement_strength = num(data.distortion, 0.32) / 0.18
   }
   if (Number.isFinite(num(data.lighting, Number.NaN))) {
     next.print_params.shade_strength = num(data.lighting, next.print_params.shade_strength)
@@ -898,7 +898,7 @@ function renderPayload(app) {
     logo_color: app.logo_color_enabled && app.overlay_type !== 'text' ? app.logo_color : null,
     opacity: num(print.opacity, 0.85),
     blend_mode: String(print.blend_mode || 'normal'),
-    distortion_strength: num(print.displacement_strength, 2.75) * 0.18,
+    distortion_strength: num(print.displacement_strength, 1.75) * 0.18,
     lighting_strength: num(print.shade_strength, 0.9),
     texture_strength: textureStrength,
     brightness_strength: num(print.ink_strength, 0.85),
